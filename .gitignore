@@ -1,0 +1,35 @@
+# Entornos virtuales
+venv/
+.venv/
+env/
+ENV/
+node_modules/
+.env
+
+# Frontend
+frontend/.next/
+frontend/node_modules/
+frontend/.env.local
+frontend/.env.*.local
+
+# Backend
+backend/.env
+backend/__pycache__/
+backend/*.pyc
+backend/*.pyo
+backend/*.pyd
+backend/.Python
+backend/*.egg-info/
+backend/dist/
+backend/build/
+backend/.pytest_cache/
+backend/.coverage
+
+# Otros
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+*.log
+.env.local
