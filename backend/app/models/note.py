@@ -8,7 +8,6 @@ class Note(Base):
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String(255))
     content = Column(Text)
-    emotion = Column(String(100))
 
     user_id = Column(Integer, ForeignKey("users.id"))
     song_id = Column(Integer, ForeignKey("songs.id"), nullable=True)

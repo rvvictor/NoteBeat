@@ -1,21 +1,54 @@
-import json
-from .base import run_ai_task
-from .utils import clean_json
-from .schemas import EmotionResponse
+from app.services.ai.base import run_ai_task
 from .prompts.emotions_prompt import build_emotions_prompt
+from app.models.note_emotions import NoteEmotion
+import json
 
-def analyze_emotions(notes):
-    text = "\n".join([n.content for n in notes])
+def safe_parse_json(text):
+    if not text:
+        return None
 
-    prompt = build_emotions_prompt(text)
-    raw = run_ai_task(prompt)
+    text = text.strip()
+
+    if text.startswith("```"):
+        text = text.replace("```json", "").replace("```", "").strip()
 
     try:
-        cleaned = clean_json(raw)
-        parsed = json.loads(cleaned)
-        return EmotionResponse(**parsed)
+        return json.loads(text)
     except Exception:
-        return {
-            "error": "Invalid AI response",
-            "raw": raw
-        }
+        print("❌ JSON inválido:", text)
+        return None
+
+def analyze_and_store_emotions(note, db):
+
+    existing = db.query(NoteEmotion).filter(
+        NoteEmotion.note_id == note.id
+    ).all()
+
+    if existing:
+        return existing
+
+    prompt = build_emotions_prompt(note.content)
+    result = run_ai_task(prompt)
+
+    try:
+        parsed = safe_parse_json(result)
+    except Exception:
+        raise Exception(f"Invalid JSON from AI: {result}")
+
+    emotions = parsed.get("emotions", [])
+
+    saved = []
+
+    for e in emotions:
+        emotion_obj = NoteEmotion(
+            note_id=note.id,
+            user_id=note.user_id,
+            emotion=e["emotion"],
+            score=e["score"]
+        )
+        db.add(emotion_obj)
+        saved.append(emotion_obj)
+
+    db.commit()
+
+    return saved

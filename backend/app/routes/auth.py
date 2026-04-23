@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from app.schemas.user import UserCreate, UserLogin
+from app.schemas.user import UserCreate, UserLogin, UserOut
 from app.models.user import User
 from app.db.deps import get_db
 from app.services.auth import hash_password, verify_password
@@ -42,9 +42,6 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
     "token_type": "bearer"
     }
 
-@router.get("/me")
+@router.get("/me", response_model=UserOut)
 def get_me(user=Depends(get_current_user)):
-    return {
-        "message": "Protected route",
-        "user": user
-    }
+    return UserOut(id=user.id, email=user.email)

@@ -6,8 +6,12 @@ from app.models import note
 from app.routes import notes
 from app.models import song
 from app.routes import ai
+from app.models import note_emotions
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
+
+
 
 @app.get("/")
 def root():

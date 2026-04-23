@@ -35,7 +35,6 @@ def create_note(
     new_note = Note(
         title=note.title,
         content=note.content,
-        emotion=note.emotion,
         user_id=user.id,
         song_id=song.id if song else None
     )

@@ -1,14 +1,20 @@
 def build_emotions_prompt(text: str):
     return f"""
-    Analiza estas notas:
+    Analiza esta nota:
 
     {text}
 
-    Responde SOLO en JSON válido:
+    Devuelve SOLO JSON válido con este formato exacto:
 
     {{
-      "main_emotions": ["string"],
-      "trend": "positiva | negativa | neutra | mixta",
-      "intensity": "baja | media | alta"
+      "emotions": [
+        {{"emotion": "felicidad", "score": 0.9}},
+        {{"emotion": "motivación", "score": 0.7}}
+      ]
     }}
+
+    REGLAS:
+    - score debe ser entre 0 y 1
+    - máximo 5 emociones
+    - NO texto adicional
     """
