@@ -30,10 +30,14 @@ def analyze_and_store_emotions(note, db):
     prompt = build_emotions_prompt(note.content)
     result = run_ai_task(prompt)
 
+    print("RAW AI RESULT:", result)
+
     try:
         parsed = safe_parse_json(result)
     except Exception:
         raise Exception(f"Invalid JSON from AI: {result}")
+
+    print("PARSED:", parsed)
 
     emotions = parsed.get("emotions", [])
 

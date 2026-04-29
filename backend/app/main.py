@@ -11,8 +11,6 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 
-
-
 @app.get("/")
 def root():
     return {"message": "API running"}
