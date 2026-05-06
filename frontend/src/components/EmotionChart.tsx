@@ -28,7 +28,7 @@ const COLORS = [
 
 export default function EmotionChart({ data }: Props) {
   return (
-    <div className="w-full h-[320px] bg-white rounded-2xl shadow-md p-4">
+    <div className="w-full h-80 bg-white rounded-2xl shadow-md p-4">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data}>
           <CartesianGrid stroke="#E5E7EB" strokeDasharray="3 3" />

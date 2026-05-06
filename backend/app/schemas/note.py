@@ -1,10 +1,23 @@
 from pydantic import BaseModel
-from typing import Optional
+from datetime import datetime
+from typing import Optional, List
+from uuid import UUID
+from app.schemas.note_emotions import NoteEmotionBase
 
-class NoteCreate(BaseModel):
-    title: Optional[str]
+class NoteBase(BaseModel):
+    title: str
     content: str
+    song_id: Optional[UUID] = None
 
-    song_title: Optional[str]
-    artist: Optional[str]
-    album: Optional[str]
+class NoteCreate(NoteBase):
+    pass
+
+class NoteResponse(NoteBase):
+    id: UUID
+    user_id: UUID
+    created_at: datetime
+    updated_at: datetime
+    emotions: List[NoteEmotionBase] = []
+
+    class Config:
+        from_attributes = True
