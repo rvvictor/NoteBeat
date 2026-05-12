@@ -24,6 +24,8 @@ backend/dist/
 backend/build/
 backend/.pytest_cache/
 backend/.coverage
+__pycache__/
+*.pyc
 
 # Otros
 .DS_Store
