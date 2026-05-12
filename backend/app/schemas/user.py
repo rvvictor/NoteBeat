@@ -1,14 +1,20 @@
 from pydantic import BaseModel, EmailStr
+from uuid import UUID
 
-class UserCreate(BaseModel):
+class UserBase(BaseModel):
     email: EmailStr
+
+class UserCreate(UserBase):
     password: str
 
-class UserLogin(BaseModel):
-    email: EmailStr
+class UserLogin(UserBase):
     password: str
 
+class UserOut(UserBase):
+    id: UUID
 
-class UserOut(BaseModel):
-    id: int
-    email: EmailStr
+    class Config:
+        from_attributes = True
+
+class UserResponse(UserOut):
+    pass

@@ -1,58 +1,74 @@
+import json
+import logging
+from sqlalchemy.orm import Session
+from app.db.database import SessionLocal
+from app.models.note import Note
+from app.models.note_emotions import NoteEmotion
 from app.services.ai.base import run_ai_task
 from .prompts.emotions_prompt import build_emotions_prompt
-from app.models.note_emotions import NoteEmotion
-import json
 
-def safe_parse_json(text):
+logger = logging.getLogger(__name__)
+
+def safe_parse_json(text: str):
     if not text:
         return None
-
     text = text.strip()
 
     if text.startswith("```"):
         text = text.replace("```json", "").replace("```", "").strip()
-
     try:
         return json.loads(text)
-    except Exception:
-        print("❌ JSON inválido:", text)
+    except json.JSONDecodeError as e:
+        logger.error(f"❌ JSON inválido: {text} | Error: {e}")
         return None
 
-def analyze_and_store_emotions(note, db):
+def analyze_and_store_emotions(note, db: Session):
 
-    existing = db.query(NoteEmotion).filter(
-        NoteEmotion.note_id == note.id
-    ).all()
-
+    existing = db.query(NoteEmotion).filter(NoteEmotion.note_id == note.id).all()
     if existing:
         return existing
 
-    prompt = build_emotions_prompt(note.content)
-    result = run_ai_task(prompt)
-
-    print("RAW AI RESULT:", result)
 
     try:
+        prompt = build_emotions_prompt(note.content)
+        result = run_ai_task(prompt)
+
         parsed = safe_parse_json(result)
-    except Exception:
-        raise Exception(f"Invalid JSON from AI: {result}")
+        if not parsed or "emotions" not in parsed:
+            logger.error(f"Estructura de IA inesperada: {result}")
+            return []
 
-    print("PARSED:", parsed)
+        emotions_data = parsed.get("emotions", [])
+        saved_objects = []
 
-    emotions = parsed.get("emotions", [])
 
-    saved = []
+        for e in emotions_data:
+            emotion_obj = NoteEmotion(
+                note_id=note.id,
+                user_id=note.user_id,
+                emotion=e["emotion"],
+                score=float(e["score"])
+            )
+            db.add(emotion_obj)
+            saved_objects.append(emotion_obj)
 
-    for e in emotions:
-        emotion_obj = NoteEmotion(
-            note_id=note.id,
-            user_id=note.user_id,
-            emotion=e["emotion"],
-            score=e["score"]
-        )
-        db.add(emotion_obj)
-        saved.append(emotion_obj)
+        db.commit()
+        return saved_objects
 
-    db.commit()
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error procesando emociones con IA: {str(e)}")
+        return []
 
-    return saved
+
+def analyze_and_store_emotions_for_note(note_id):
+    db = SessionLocal()
+    try:
+        note = db.query(Note).filter(Note.id == note_id).first()
+        if not note:
+            logger.warning(f"Note not found for emotion analysis: {note_id}")
+            return []
+
+        return analyze_and_store_emotions(note, db)
+    finally:
+        db.close()
