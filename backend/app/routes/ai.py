@@ -3,19 +3,21 @@ from sqlalchemy.orm import Session
 from app.db.deps import get_db
 from app.models.note import Note
 from app.services.deps import get_current_user
+from app.schemas.ai import ChatRequest, ChatResponse
 from app.services.ai.summary import generate_summary
 from app.services.ai.recommendations import recommend_actions
 from app.services.ai.reflection import reflect_on_note
+from app.services.ai.chat import chat_with_notes
 from app.services.ai.emotions import analyze_and_store_emotions
 from app.models.note_emotions import NoteEmotion
 from collections import defaultdict
-from datetime import datetime
+from uuid import UUID
 
 router = APIRouter(tags=["AI"])
 
 
 @router.post("/emotions/{note_id}")
-def analyze_emotions(note_id: int, db: Session = Depends(get_db), user=Depends(get_current_user)):
+def analyze_emotions(note_id: UUID, db: Session = Depends(get_db), user=Depends(get_current_user)):
     note = db.query(Note).filter(
         Note.id == note_id,
         Note.user_id == user.id
@@ -37,7 +39,7 @@ def analyze_emotions(note_id: int, db: Session = Depends(get_db), user=Depends(g
     }
 
 @router.get("/emotions/{note_id}")
-def get_emotions(note_id: int, db: Session = Depends(get_db), user=Depends(get_current_user)):
+def get_emotions(note_id: UUID, db: Session = Depends(get_db), user=Depends(get_current_user)):
     emotions = db.query(NoteEmotion).filter(
         NoteEmotion.note_id == note_id,
         NoteEmotion.user_id == user.id
@@ -63,7 +65,7 @@ def get_recommendations(db: Session = Depends(get_db), user=Depends(get_current_
 
 
 @router.get("/reflection/{note_id}")
-def get_reflection(note_id: int, db: Session = Depends(get_db), user=Depends(get_current_user)):
+def get_reflection(note_id: UUID, db: Session = Depends(get_db), user=Depends(get_current_user)):
     note = db.query(Note).filter(
         Note.id == note_id,
         Note.user_id == user.id
@@ -87,6 +89,30 @@ def get_all_emotions(db: Session = Depends(get_db), user=Depends(get_current_use
             "note_id": e.note_id
         } for e in emotions
     ]
+
+
+@router.post("/chat", response_model=ChatResponse)
+def chat_with_ai(
+    payload: ChatRequest,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user)
+):
+    notes_query = db.query(Note).filter(Note.user_id == user.id)
+
+    if payload.note_ids:
+        notes_query = notes_query.filter(Note.id.in_(payload.note_ids))
+
+    notes = notes_query.order_by(Note.created_at.desc()).limit(50).all()
+
+    if not notes:
+        raise HTTPException(status_code=404, detail="No notes found")
+
+    answer = chat_with_notes(payload.question, notes)
+
+    return ChatResponse(
+        answer=answer,
+        used_note_ids=[note.id for note in notes]
+    )
 
 @router.get("/dashboard")
 def emotions_dashboard(

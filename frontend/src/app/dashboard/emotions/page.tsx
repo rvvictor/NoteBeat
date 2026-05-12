@@ -1,14 +1,57 @@
-import { getEmotionDashboard } from "@/lib/api";
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { ApiError, getEmotionDashboard } from "@/lib/api";
 import EmotionChart from "@/components/EmotionChart";
+import { EmotionDashboard } from "@/lib/emotions";
 
-export default async function EmotionPage() {
-  const token =
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyM0BleGFtcGxlLmNvbSIsImV4cCI6MTc3NzQ3ODUxMH0.V2JbnF5LINjewyCV5ctPwSgZXtiNcuyvBPq6f88y5bM";
+export default function EmotionPage() {
+  const router = useRouter();
+  const [data, setData] = useState<EmotionDashboard | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const data = await getEmotionDashboard(token);
+  useEffect(() => {
+    getEmotionDashboard()
+      .then(setData)
+      .catch((err) => {
+        if (err instanceof ApiError && err.status === 401) {
+          router.push("/login");
+          return;
+        }
+        const message = err instanceof Error ? err.message : "Unknown error";
+        setError(message);
+      })
+      .finally(() => setIsLoading(false));
+  }, []);
+
+  if (isLoading) {
+    return (
+      <section className="p-8">
+        <div className="max-w-6xl mx-auto">Cargando...</div>
+      </section>
+    );
+  }
+
+  if (error) {
+    return (
+      <section className="p-8">
+        <div className="max-w-6xl mx-auto text-red-600">{error}</div>
+      </section>
+    );
+  }
+
+  if (!data) {
+    return (
+      <section className="p-8">
+        <div className="max-w-6xl mx-auto">Sin datos.</div>
+      </section>
+    );
+  }
 
   return (
-    <main className="min-h-screen bg-gray-100 p-8">
+    <section className="p-8">
       <div className="max-w-6xl mx-auto">
         <h1 className="text-4xl font-bold text-gray-800 mb-8">
           Emotional Dashboard
@@ -82,6 +125,6 @@ export default async function EmotionPage() {
           </table>
         </div>
       </div>
-    </main>
+    </section>
   );
 }

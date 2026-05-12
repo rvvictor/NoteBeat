@@ -1,6 +1,8 @@
 import json
 import logging
 from sqlalchemy.orm import Session
+from app.db.database import SessionLocal
+from app.models.note import Note
 from app.models.note_emotions import NoteEmotion
 from app.services.ai.base import run_ai_task
 from .prompts.emotions_prompt import build_emotions_prompt
@@ -57,3 +59,16 @@ def analyze_and_store_emotions(note, db: Session):
         db.rollback()
         logger.error(f"Error procesando emociones con IA: {str(e)}")
         return []
+
+
+def analyze_and_store_emotions_for_note(note_id):
+    db = SessionLocal()
+    try:
+        note = db.query(Note).filter(Note.id == note_id).first()
+        if not note:
+            logger.warning(f"Note not found for emotion analysis: {note_id}")
+            return []
+
+        return analyze_and_store_emotions(note, db)
+    finally:
+        db.close()

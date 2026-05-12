@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException
+import os
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
 from app.schemas.user import UserCreate, UserLogin, UserOut
 from app.models.user import User
@@ -8,6 +9,10 @@ from app.services.jwt import create_access_token
 from app.services.deps import get_current_user
 
 router = APIRouter()
+
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
+COOKIE_NAME = os.getenv("AUTH_COOKIE_NAME", "nb_access_token")
+COOKIE_SECURE = os.getenv("COOKIE_SECURE", "false").lower() == "true"
 
 @router.post("/register")
 def register(user: UserCreate, db: Session = Depends(get_db)):
@@ -28,7 +33,7 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
     return {"message": "User created"}
 
 @router.post("/login")
-def login(user: UserLogin, db: Session = Depends(get_db)):
+def login(user: UserLogin, response: Response, db: Session = Depends(get_db)):
     db_user = db.query(User).filter(User.email == user.email).first()
 
     if not db_user:
@@ -37,10 +42,27 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
     if not verify_password(user.password, db_user.password):
         raise HTTPException(status_code=400, detail="Invalid credentials")
 
-    return {
-    "access_token": create_access_token({"sub": db_user.email}),
-    "token_type": "bearer"
-    }
+    token = create_access_token(
+        {"sub": db_user.email},
+        expires_delta=ACCESS_TOKEN_EXPIRE_MINUTES
+    )
+
+    response.set_cookie(
+        key=COOKIE_NAME,
+        value=token,
+        httponly=True,
+        samesite="lax",
+        secure=COOKIE_SECURE,
+        max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60
+    )
+
+    return {"message": "Login successful"}
+
+
+@router.post("/logout")
+def logout(response: Response):
+    response.delete_cookie(key=COOKIE_NAME)
+    return {"message": "Logged out"}
 
 @router.get("/me", response_model=UserOut)
 def get_me(user=Depends(get_current_user)):

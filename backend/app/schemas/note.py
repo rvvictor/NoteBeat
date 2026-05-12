@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Optional, List
 from uuid import UUID
 from app.schemas.note_emotions import NoteEmotionBase
+from app.schemas.song import SongCreate, SongResponse
 
 class NoteBase(BaseModel):
     title: str
@@ -10,7 +11,14 @@ class NoteBase(BaseModel):
     song_id: Optional[UUID] = None
 
 class NoteCreate(NoteBase):
-    pass
+    song: Optional[SongCreate] = None
+
+
+class NoteUpdate(BaseModel):
+    title: Optional[str] = None
+    content: Optional[str] = None
+    song_id: Optional[UUID] = None
+    song: Optional[SongCreate] = None
 
 class NoteResponse(NoteBase):
     id: UUID
@@ -18,6 +26,7 @@ class NoteResponse(NoteBase):
     created_at: datetime
     updated_at: datetime
     emotions: List[NoteEmotionBase] = []
+    song: Optional[SongResponse] = None
 
     class Config:
         from_attributes = True

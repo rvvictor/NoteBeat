@@ -2,6 +2,7 @@ import uuid
 from sqlalchemy import Column, String, Float
 from sqlalchemy.dialects.postgresql import UUID
 from app.db.database import Base
+from sqlalchemy.orm import relationship
 
 class Song(Base):
     __tablename__ = "songs"
@@ -11,5 +12,8 @@ class Song(Base):
     album = Column(String(255), nullable=True)
 
     spotify_id = Column(String(255), nullable=True)
+    image_url = Column(String(512), nullable=True)
     valence = Column(Float, nullable=True)
     energy = Column(Float, nullable=True)
+
+    notes = relationship("Note", back_populates="song")

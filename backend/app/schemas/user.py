@@ -7,8 +7,14 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     password: str
 
-class UserResponse(UserBase):
+class UserLogin(UserBase):
+    password: str
+
+class UserOut(UserBase):
     id: UUID
 
     class Config:
         from_attributes = True
+
+class UserResponse(UserOut):
+    pass

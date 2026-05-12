@@ -7,6 +7,7 @@ class SongBase(BaseModel):
     artist: str
     album: Optional[str] = None
     spotify_id: Optional[str] = None
+    image_url: Optional[str] = None
 
 class SongCreate(SongBase):
     pass
