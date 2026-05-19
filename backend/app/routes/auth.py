@@ -13,6 +13,7 @@ router = APIRouter()
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
 COOKIE_NAME = os.getenv("AUTH_COOKIE_NAME", "nb_access_token")
 COOKIE_SECURE = os.getenv("COOKIE_SECURE", "false").lower() == "true"
+COOKIE_SAMESITE = os.getenv("COOKIE_SAMESITE", "lax")
 
 @router.post("/register")
 def register(user: UserCreate, db: Session = Depends(get_db)):
@@ -51,7 +52,7 @@ def login(user: UserLogin, response: Response, db: Session = Depends(get_db)):
         key=COOKIE_NAME,
         value=token,
         httponly=True,
-        samesite="lax",
+        samesite=COOKIE_SAMESITE,
         secure=COOKIE_SECURE,
         max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60
     )

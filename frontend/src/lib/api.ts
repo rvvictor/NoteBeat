@@ -209,3 +209,55 @@ export async function searchSpotify(
   const payload = await res.json();
   return payload.items as SpotifyTrack[];
 }
+
+export async function getSpotifyStatus(): Promise<{ connected: boolean }> {
+  const res = await fetch(`${API_BASE}/spotify/status`, {
+    credentials: "include",
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new ApiError(res.status, text);
+  }
+
+  return res.json();
+}
+
+export async function getSpotifyRecommendations(
+  text: string,
+  limit = 6
+): Promise<SpotifyTrack[]> {
+  const params = new URLSearchParams({
+    text,
+    limit: String(limit),
+  });
+
+  const res = await fetch(
+    `${API_BASE}/spotify/recommendations?${params.toString()}`,
+    {
+      credentials: "include",
+    }
+  );
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new ApiError(res.status, text);
+  }
+
+  const payload = await res.json();
+  return payload.items as SpotifyTrack[];
+}
+
+export async function disconnectSpotify(): Promise<{ message: string }> {
+  const res = await fetch(`${API_BASE}/spotify/disconnect`, {
+    method: "POST",
+    credentials: "include",
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new ApiError(res.status, text);
+  }
+
+  return res.json();
+}

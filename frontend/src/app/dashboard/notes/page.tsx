@@ -3,8 +3,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ApiError, createNote, getNotes, searchSpotify } from "@/lib/api";
+import {
+  ApiError,
+  createNote,
+  disconnectSpotify,
+  getNotes,
+  getSpotifyRecommendations,
+  getSpotifyStatus,
+  searchSpotify,
+} from "@/lib/api";
 import { NoteItem, SpotifyTrack } from "@/lib/notes";
+
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
 export default function NotesPage() {
   const router = useRouter();
@@ -26,6 +37,14 @@ export default function NotesPage() {
   const [selectedTrack, setSelectedTrack] = useState<SpotifyTrack | null>(null);
   const [previewDuration, setPreviewDuration] = useState<number | null>(null);
   const [previewTime, setPreviewTime] = useState(0);
+  const [isSpotifyConnected, setIsSpotifyConnected] = useState<boolean | null>(
+    null
+  );
+  const [recommendations, setRecommendations] = useState<SpotifyTrack[]>([]);
+  const [isRecommending, setIsRecommending] = useState(false);
+  const [recommendationMessage, setRecommendationMessage] = useState<
+    string | null
+  >(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
@@ -40,6 +59,18 @@ export default function NotesPage() {
         setError(message);
       })
       .finally(() => setIsLoading(false));
+  }, []);
+
+  useEffect(() => {
+    getSpotifyStatus()
+      .then((status) => setIsSpotifyConnected(status.connected))
+      .catch((err) => {
+        if (err instanceof ApiError && err.status === 401) {
+          router.push("/login");
+          return;
+        }
+        setIsSpotifyConnected(false);
+      });
   }, []);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -143,6 +174,61 @@ export default function NotesPage() {
     return () => clearTimeout(timeoutId);
   }, [spotifyQuery]);
 
+  useEffect(() => {
+    const noteText = content.trim();
+
+    if (isSpotifyConnected === false) {
+      setRecommendations([]);
+      setRecommendationMessage("Conecta Spotify para ver recomendaciones.");
+      setIsRecommending(false);
+      return;
+    }
+
+    if (isSpotifyConnected !== true) {
+      return;
+    }
+
+    if (noteText.length < 20) {
+      setRecommendations([]);
+      setRecommendationMessage("Escribe un poco mas para recomendaciones.");
+      setIsRecommending(false);
+      return;
+    }
+
+    setIsRecommending(true);
+    setRecommendationMessage(null);
+
+    const timeoutId = setTimeout(() => {
+      getSpotifyRecommendations(noteText, 6)
+        .then((items) => {
+          setRecommendations(items);
+          if (items.length === 0) {
+            setRecommendationMessage("No encontramos recomendaciones aun.");
+          }
+        })
+        .catch((err) => {
+          if (err instanceof ApiError && err.status === 401) {
+            router.push("/login");
+            return;
+          }
+          if (err instanceof ApiError && err.status === 409) {
+            setIsSpotifyConnected(false);
+            setRecommendations([]);
+            setRecommendationMessage("Conecta Spotify para ver recomendaciones.");
+            return;
+          }
+          if (err instanceof ApiError && err.status === 429) {
+            setRecommendationMessage("Espera un momento antes de pedir mas recomendaciones.");
+            return;
+          }
+          setRecommendationMessage("No pudimos cargar recomendaciones.");
+        })
+        .finally(() => setIsRecommending(false));
+    }, 1200);
+
+    return () => clearTimeout(timeoutId);
+  }, [content, isSpotifyConnected]);
+
   const handleSelectTrack = (track: SpotifyTrack) => {
     setSongTitle(track.title);
     setSongArtist(track.artist);
@@ -164,6 +250,25 @@ export default function NotesPage() {
     setSongSpotifyId("");
     setPreviewDuration(null);
     setPreviewTime(0);
+  };
+
+  const handleConnectSpotify = () => {
+    window.location.href = `${API_BASE}/spotify/login`;
+  };
+
+  const handleDisconnectSpotify = async () => {
+    try {
+      await disconnectSpotify();
+      setIsSpotifyConnected(false);
+      setRecommendations([]);
+      setRecommendationMessage("Conecta Spotify para ver recomendaciones.");
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        router.push("/login");
+        return;
+      }
+      setRecommendationMessage("No pudimos desconectar Spotify.");
+    }
   };
 
   const waveformBars = useMemo(
@@ -210,6 +315,79 @@ export default function NotesPage() {
                 placeholder="What are you feeling today?"
                 required
               />
+            </div>
+
+            <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase text-gray-500">
+                  Recomendaciones de Spotify
+                </p>
+                {isSpotifyConnected === false && (
+                  <button
+                    type="button"
+                    onClick={handleConnectSpotify}
+                    className="text-xs font-semibold text-blue-700 hover:text-blue-900"
+                  >
+                    Conectar Spotify
+                  </button>
+                )}
+                {isSpotifyConnected === true && (
+                  <button
+                    type="button"
+                    onClick={handleDisconnectSpotify}
+                    className="text-xs font-semibold text-gray-600 hover:text-gray-900"
+                  >
+                    Desconectar
+                  </button>
+                )}
+              </div>
+
+              {recommendationMessage && (
+                <p className="text-xs text-gray-500 mt-2">
+                  {recommendationMessage}
+                </p>
+              )}
+
+              {isRecommending && (
+                <p className="text-xs text-gray-500 mt-2">
+                  Buscando recomendaciones...
+                </p>
+              )}
+
+              {recommendations.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  {recommendations.map((track, index) => (
+                    <button
+                      type="button"
+                      key={`rec-${track.id ?? "unknown"}-${index}`}
+                      onClick={() => handleSelectTrack(track)}
+                      className="w-full text-left border border-gray-100 rounded-xl p-3 hover:border-blue-200 hover:bg-blue-50 flex gap-3"
+                    >
+                      <div className="h-12 w-12 rounded-lg bg-gray-100 overflow-hidden flex items-center justify-center text-xs text-gray-400">
+                        {track.image_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={track.image_url}
+                            alt={`${track.title} cover`}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          "No art"
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">
+                          {track.title}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {track.artist}
+                          {track.album ? ` · ${track.album}` : ""}
+                        </p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="border-t pt-4">

@@ -8,10 +8,11 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      - CORS_ORIGINS=http://localhost:3000
+      - CORS_ORIGINS=http://localhost:3000,https://localhost:3000
     volumes:
       - ./backend/app:/app/app
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+      - ./backend/certs:/certs
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --ssl-keyfile /certs/localhost-key.pem --ssl-certfile /certs/localhost.pem
 
   frontend:
     build:
@@ -19,12 +20,23 @@ services:
       dockerfile: Dockerfile
       target: dev
     ports:
-      - "3000:3000"
+      - "3001:3001"
     environment:
-      - NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+      - NEXT_PUBLIC_API_BASE_URL=https://localhost:8000
     volumes:
       - ./frontend:/app
       - /app/node_modules
       - /app/.next
     depends_on:
       - backend
+    command: npm run dev -- --hostname 0.0.0.0 --port 3001
+
+  frontend_https:
+    image: caddy:2-alpine
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend/Caddyfile:/etc/caddy/Caddyfile
+      - ./backend/certs:/certs
+    depends_on:
+      - frontend

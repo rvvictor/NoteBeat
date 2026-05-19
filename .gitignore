@@ -35,6 +35,7 @@ backend/dist/
 backend/build/
 backend/.pytest_cache/
 backend/.coverage
+backend/certs/
 
 # Python caches
 __pycache__/
@@ -55,3 +56,5 @@ coverage/
 *.swo
 *.log
 .env.local
+ngrok.yml
+ngrok.yml.bak

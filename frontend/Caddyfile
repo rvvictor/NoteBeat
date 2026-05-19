@@ -1,0 +1,12 @@
+{
+  auto_https off
+}
+
+https://localhost:3000 {
+  tls /certs/localhost.pem /certs/localhost-key.pem
+  reverse_proxy http://frontend:3001 {
+    transport http {
+      versions 1.1
+    }
+  }
+}
