@@ -17,9 +17,9 @@ const displayFont = Outfit({
 });
 
 export const metadata: Metadata = {
-  title: "NoteBeat | Notas que suenan",
+  title: "NoteBeat | Every emotion tells a story",
   description:
-    "NoteBeat conecta tus notas con musica y IA para capturar emociones y compartirlas.",
+    "A personal space to write, reflect, and connect through emotions, music, and AI-powered conversations.",
 };
 
 export default function RootLayout({

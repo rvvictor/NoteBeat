@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 
 const featureRows = [
@@ -28,7 +29,7 @@ const communityNotes = [
   {
     title: "Lluvia tranquila",
     text: "Escribi sobre volver a casa y dejar que la musica ordene mis pensamientos.",
-    author: "Vitor",
+    author: "Victor",
     date: "18 May 2026",
     song: "Afterglow",
     artist: "Rina Sawayama",
@@ -37,7 +38,7 @@ const communityNotes = [
   {
     title: "Domingo lento",
     text: "Un dia lento con cafe y una lista de canciones suaves para cerrar la semana.",
-    author: "Yoan777",
+    author: "Yojan777",
     date: "16 May 2026",
     song: "Sunset Drive",
     artist: "Kali Uchis",
@@ -55,7 +56,7 @@ const communityNotes = [
   {
     title: "Amigos y beats",
     text: "Compartimos notas de la noche y la IA nos preparo un resumen emotivo.",
-    author: "Seabastian",
+    author: "Seebastiaaan",
     date: "12 May 2026",
     song: "Night in Motion",
     artist: "SG Lewis",
@@ -78,17 +79,17 @@ export default function Home() {
       <header className="landing-nav">
         <div className="nb-container flex items-center justify-between py-4">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-[rgba(108,99,255,0.12)] flex items-center justify-center">
-              <svg
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-                className="h-5 w-5 text-(--nb-accent-2)"
-                fill="currentColor"
-              >
-                <path d="M12 3c2.4 0 4.4 1.9 4.4 4.3v6.4a3.6 3.6 0 0 1-3.6 3.6c-1.8 0-3.4-1.3-3.6-3.1a3.4 3.4 0 0 1 3.3-3.8c.5 0 1 .1 1.4.3V7.3c0-1-.9-1.9-2-1.9s-2 .8-2 1.9v8.6a4.6 4.6 0 1 1-9.2 0V9.2h2.1v6.7a2.5 2.5 0 0 0 2.5 2.5 2.5 2.5 0 0 0 2.5-2.5V7.3C7.8 5 9.8 3 12 3z" />
-              </svg>
-            </div>
-            <span className="text-lg font-semibold tracking-tight">NoteBeat</span>
+            <Image
+              src="./brand/logoNoteBeat.svg"
+              alt="NoteBeat logo"
+              width={36}
+              height={36}
+              className="h-9 w-9"
+              priority
+            />
+            <span className="font-display text-xl sm:text-2xl font-semibold tracking-[0.04em]">
+              NoteBeat
+            </span>
           </div>
           <Link href="/login" className="btn-primary">
             Start writing
@@ -259,7 +260,7 @@ export default function Home() {
                 <span className="text-base font-semibold">NoteBeat</span>
               </div>
               <p className="text-sm text-(--nb-ink-muted)">
-                Toma notas, siente la musica y comparte tu historia.
+                Capture emotions, talk with AI, and unlock a community built around real thoughts and shared moments
               </p>
             </div>
             <div className="space-y-2 text-sm">
@@ -289,7 +290,7 @@ export default function Home() {
               <a className="block hover:underline" href="/register">
                 Crear cuenta
               </a>
-              <span className="block text-(--nb-ink-muted)">
+              <span className="block hover:underline text-(--nb-ink-muted)">
                 Soporte (pronto)
               </span>
             </div>
@@ -297,10 +298,10 @@ export default function Home() {
               <p className="text-xs uppercase tracking-[0.2em] text-(--nb-ink-muted)">
                 Legal
               </p>
-              <span className="block text-(--nb-ink-muted)">
+              <a className="block hover:underline text-(--nb-ink-muted)">
                 Terminos y privacidad
-              </span>
-              <span className="block text-(--nb-ink-muted)">
+              </a>
+              <span className="block hover:underline text-(--nb-ink-muted)">
                 Aviso legal
               </span>
             </div>
