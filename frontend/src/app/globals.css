@@ -1143,3 +1143,249 @@ a {
     animation: none;
   }
 }
+
+/* NoteBeat Recap Premium Styles */
+.recap-timeframe-bar {
+  display: flex;
+  background: rgba(108, 99, 255, 0.08);
+  border: 1px solid rgba(108, 99, 255, 0.16);
+  padding: 0.3rem;
+  border-radius: 999px;
+  gap: 0.2rem;
+}
+
+.recap-tab-btn {
+  background: transparent;
+  border: none;
+  padding: 0.5rem 1.4rem;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: #5b6478;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.recap-tab-btn:hover {
+  color: #2f2a63;
+}
+
+.recap-tab-btn.active {
+  background: #ffffff;
+  color: #3f36b5;
+  box-shadow: 0 4px 12px rgba(108, 99, 255, 0.12);
+}
+
+.mood-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 28px;
+  padding: 2.2rem;
+  color: #ffffff;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+}
+
+.mood-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(125deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0) 100%);
+  z-index: 1;
+}
+
+.mood-card-content {
+  position: relative;
+  z-index: 2;
+}
+
+.mood-title-small {
+  font-size: 0.75rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  font-weight: 600;
+  opacity: 0.9;
+}
+
+.mood-title-large {
+  font-size: clamp(2rem, 3vw + 1rem, 3.2rem);
+  font-weight: 800;
+  line-height: 1.1;
+  margin-top: 0.6rem;
+  text-transform: capitalize;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+}
+
+.mood-description {
+  margin-top: 1rem;
+  font-size: 1.05rem;
+  opacity: 0.95;
+  max-width: 28rem;
+  line-height: 1.4;
+}
+
+/* Color gradients for moods */
+.mood-joy {
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 40%, #db2777 100%);
+  box-shadow: 0 20px 40px rgba(245, 158, 11, 0.35);
+}
+
+.mood-sadness {
+  background: linear-gradient(135deg, #1e1b4b 0%, #312e81 40%, #3b82f6 100%);
+  box-shadow: 0 20px 40px rgba(59, 130, 246, 0.25);
+}
+
+.mood-serenity {
+  background: linear-gradient(135deg, #0f766e 0%, #0d9488 45%, #10b981 100%);
+  box-shadow: 0 20px 40px rgba(16, 185, 129, 0.3);
+}
+
+.mood-anger {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 45%, #7c3aed 100%);
+  box-shadow: 0 20px 40px rgba(220, 38, 38, 0.3);
+}
+
+.mood-neutral {
+  background: linear-gradient(135deg, #4b5563 0%, #6b7280 45%, #818cf8 100%);
+  box-shadow: 0 20px 40px rgba(107, 114, 128, 0.25);
+}
+
+.recap-music-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.2rem;
+}
+
+.recap-music-card {
+  background: #ffffff;
+  border-radius: 20px;
+  border: 1px solid rgba(229, 231, 235, 0.9);
+  padding: 1.2rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.04);
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.recap-music-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(108, 99, 255, 0.25);
+}
+
+.recap-music-art {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  background: rgba(108, 99, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+}
+
+.recap-music-info {
+  min-width: 0;
+}
+
+.recap-music-label {
+  font-size: 0.65rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: #6b7280;
+  margin-bottom: 0.2rem;
+}
+
+.recap-music-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #111827;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.recap-music-sub {
+  font-size: 0.75rem;
+  color: #4b5563;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.recap-music-count {
+  margin-top: 0.2rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #6c63ff;
+  background: rgba(108, 99, 255, 0.08);
+  padding: 0.15rem 0.45rem;
+  border-radius: 99px;
+  display: inline-block;
+}
+
+.highlight-carousel {
+  display: flex;
+  gap: 1.2rem;
+  overflow-x: auto;
+  padding-bottom: 1rem;
+  scrollbar-width: thin;
+}
+
+.highlight-card {
+  flex: 0 0 300px;
+  background: #ffffff;
+  border-radius: 20px;
+  border: 1px solid rgba(229, 231, 235, 0.9);
+  padding: 1.4rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.04);
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.highlight-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(108, 99, 255, 0.25);
+}
+
+.highlight-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.25rem 0.65rem;
+  border-radius: 99px;
+  text-transform: capitalize;
+  display: inline-block;
+}
+
+.badge-joy {
+  background: rgba(251, 191, 36, 0.15);
+  color: #d97706;
+}
+
+.badge-sadness {
+  background: rgba(59, 130, 246, 0.15);
+  color: #1d4ed8;
+}
+
+.badge-serenity {
+  background: rgba(16, 185, 129, 0.15);
+  color: #047857;
+}
+
+.badge-anger {
+  background: rgba(220, 38, 38, 0.15);
+  color: #b91c1c;
+}
+
+.badge-neutral {
+  background: rgba(107, 114, 128, 0.15);
+  color: #4b5563;
+}
+

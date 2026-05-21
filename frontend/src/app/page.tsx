@@ -4,31 +4,31 @@ import Link from "next/link";
 const featureRows = [
   {
     tag: "Create Note",
-    title: "Crea notas con musica y contexto",
+    title: "Create notes with music and context",
     description:
-      "Escribe libremente, adjunta una cancion y guarda el momento en segundos. Todo queda listo para volver a escucharlo.",
-    media: "Vista de creacion",
+      "Write freely, attach a song, and capture the moment in seconds. Everything is set for you to listen to it again.",
+    media: "Creation view",
   },
   {
     tag: "Share Note",
-    title: "Comparte notas que se sienten reales",
+    title: "Share notes that feel real",
     description:
-      "Comparte tus notas con amigos y recibe respuestas con emociones, reacciones y musica recomendada.",
-    media: "Interacciones y reacciones",
+      "Share your notes with friends and receive responses with emotions, reactions, and recommended music.",
+    media: "Interactions and reactions",
   },
   {
     tag: "Feed",
-    title: "Un feed que te inspira",
+    title: "A feed that inspires you",
     description:
-      "Explora notas recientes, descubre moods y guarda nuevas canciones para tu propio flujo creativo.",
-    media: "Feed de notas",
+      "Explore recent notes, discover moods, and save new songs to fuel your own creative flow.",
+    media: "Notes feed",
   },
 ];
 
 const communityNotes = [
   {
-    title: "Lluvia tranquila",
-    text: "Escribi sobre volver a casa y dejar que la musica ordene mis pensamientos.",
+    title: "Quiet rain",
+    text: "I wrote about coming home and letting the music organize my thoughts.",
     author: "Victor",
     date: "18 May 2026",
     song: "Afterglow",
@@ -36,8 +36,8 @@ const communityNotes = [
     accent: "#dde7ff",
   },
   {
-    title: "Domingo lento",
-    text: "Un dia lento con cafe y una lista de canciones suaves para cerrar la semana.",
+    title: "Slow Sunday",
+    text: "A slow day with coffee and a list of soft songs to close out the week.",
     author: "Yojan777",
     date: "16 May 2026",
     song: "Sunset Drive",
@@ -45,8 +45,8 @@ const communityNotes = [
     accent: "#e5dfff",
   },
   {
-    title: "Reset mental",
-    text: "Una nota corta para recordarme respirar y escuchar algo que me calme.",
+    title: "Mental reset",
+    text: "A short note to remind myself to breathe and listen to something that calms me.",
     author: "FerV24",
     date: "14 May 2026",
     song: "Open Window",
@@ -54,8 +54,8 @@ const communityNotes = [
     accent: "#f8dceb",
   },
   {
-    title: "Amigos y beats",
-    text: "Compartimos notas de la noche y la IA nos preparo un resumen emotivo.",
+    title: "Friends and beats",
+    text: "We shared notes from the night and the AI prepared an emotional summary for us.",
     author: "Seebastiaaan",
     date: "12 May 2026",
     song: "Night in Motion",
@@ -63,8 +63,8 @@ const communityNotes = [
     accent: "#e3edff",
   },
   {
-    title: "Nuevo comienzo",
-    text: "Primer dia escribiendo aqui. Me gusto como la musica acompana la historia.",
+    title: "New beginning",
+    text: "First day writing here. I liked how the music accompanies the story.",
     author: "Diana",
     date: "10 May 2026",
     song: "Bloom",
@@ -114,7 +114,7 @@ export default function Home() {
         <section id="flow" className="nb-container -mt-4 pt-0 pb-16 lg:-mt-6 lg:pt-2">
           <div className="text-center space-y-6">
             <div className="media-placeholder aspect-video mx-auto max-w-4xl flex items-center justify-center text-sm uppercase tracking-[0.2em] text-(--nb-ink-muted)">
-              Proximamente video
+              Video coming soon
             </div>
           </div>
         </section>
@@ -163,32 +163,32 @@ export default function Home() {
             <div className="mt-12 grid gap-10 lg:grid-cols-[1.05fr_0.95fr] items-center">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="card-soft p-4">
-                  <p className="text-sm font-semibold">Resumen emocional</p>
+                  <p className="text-sm font-semibold">Emotional summary</p>
                   <p className="text-xs text-(--nb-ink-muted)">
-                    Resume lo que escribes y destaca el sentimiento principal.
+                    Summarizes what you write and highlights the main feeling.
                   </p>
                 </div>
                 <div className="card-soft p-4">
-                  <p className="text-sm font-semibold">Sugerencias de musica</p>
+                  <p className="text-sm font-semibold">Music suggestions</p>
                   <p className="text-xs text-(--nb-ink-muted)">
-                    La IA encuentra canciones que combinan con tu nota.
+                    The AI finds songs that match your note.
                   </p>
                 </div>
                 <div className="card-soft p-4">
-                  <p className="text-sm font-semibold">Contexto para compartir</p>
+                  <p className="text-sm font-semibold">Shareable context</p>
                   <p className="text-xs text-(--nb-ink-muted)">
-                    Resalta los puntos clave para explicar tu nota a otros.
+                    Highlights key points to explain your note to others.
                   </p>
                 </div>
                 <div className="card-soft p-4">
-                  <p className="text-sm font-semibold">Memoria inteligente</p>
+                  <p className="text-sm font-semibold">Smart memory</p>
                   <p className="text-xs text-(--nb-ink-muted)">
-                    Encuentra notas similares en segundos con busqueda semantica.
+                    Find similar notes in seconds with semantic search.
                   </p>
                 </div>
               </div>
               <div className="media-placeholder ai-glow aspect-square flex items-center justify-center text-sm uppercase tracking-[0.2em] text-(--nb-ink-muted)">
-                Panel IA
+                AI Panel
               </div>
             </div>
           </div>
@@ -214,7 +214,7 @@ export default function Home() {
                   {note.text}
                 </p>
                 <div className="mt-4 flex items-center justify-between text-xs text-(--nb-ink-muted)">
-                  <span>Por {note.author}</span>
+                  <span>By {note.author}</span>
                   <span>{note.date}</span>
                 </div>
                 <div className="mt-4 song-chip">
@@ -262,33 +262,33 @@ export default function Home() {
             </div>
             <div className="space-y-2 text-sm">
               <p className="text-xs uppercase tracking-[0.2em] text-(--nb-ink-muted)">
-                Secciones
+                Sections
               </p>
               <a className="block hover:underline" href="#flow">
-                Flujo
+                Flow
               </a>
               <a className="block hover:underline" href="#features">
-                Funciones
+                Features
               </a>
               <a className="block hover:underline" href="#ai">
-                IA
+                AI
               </a>
               <a className="block hover:underline" href="#community">
-                Comunidad
+                Community
               </a>
             </div>
             <div className="space-y-2 text-sm">
               <p className="text-xs uppercase tracking-[0.2em] text-(--nb-ink-muted)">
-                Recursos
+                Resources
               </p>
               <a className="block hover:underline" href="/login">
                 Login
               </a>
               <a className="block hover:underline" href="/register">
-                Crear cuenta
+                Create account
               </a>
               <span className="block hover:underline text-(--nb-ink-muted)">
-                Soporte (pronto)
+                Support (soon)
               </span>
             </div>
             <div className="space-y-2 text-sm">
@@ -296,15 +296,15 @@ export default function Home() {
                 Legal
               </p>
               <a className="block hover:underline text-(--nb-ink-muted)">
-                Terminos y privacidad
+                Terms & Privacy
               </a>
               <span className="block hover:underline text-(--nb-ink-muted)">
-                Aviso legal
+                Legal Notice
               </span>
             </div>
           </div>
           <div className="mt-10 flex flex-col gap-2 text-xs text-(--nb-ink-muted) sm:flex-row sm:items-center sm:justify-between">
-            <span>Regresar a las secciones</span>
+            <span>Back to top</span>
             <span>© 2026 NoteBeat. All rights reserved.</span>
           </div>
         </div>

@@ -22,6 +22,11 @@ export interface NoteCreatePayload {
   song?: SongPayload | null;
 }
 
+export interface NoteEmotionItem {
+  emotion: string;
+  score: number;
+}
+
 export interface NoteItem {
   id: string;
   title: string;
@@ -31,4 +36,5 @@ export interface NoteItem {
   user_id: string;
   created_at: string;
   updated_at: string;
+  emotions?: NoteEmotionItem[];
 }
