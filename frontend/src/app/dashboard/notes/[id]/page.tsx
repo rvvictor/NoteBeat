@@ -264,166 +264,174 @@ export default function NoteDetailPage() {
 
   if (isLoading) {
     return (
-      <section className="p-8">
-        <div className="max-w-4xl mx-auto">Loading...</div>
+      <section className="dashboard-content">
+        <div className="dashboard-container dashboard-container-narrow">
+          <div className="dashboard-card dashboard-state">Loading...</div>
+        </div>
       </section>
     );
   }
 
   if (!note) {
     return (
-      <section className="p-8">
-        <div className="max-w-4xl mx-auto">Note not found.</div>
+      <section className="dashboard-content">
+        <div className="dashboard-container dashboard-container-narrow">
+          <div className="dashboard-card dashboard-state">Note not found.</div>
+        </div>
       </section>
     );
   }
 
   return (
-    <section className="p-8">
-      <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow p-6">
-        <header className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">Edit note</h1>
-          <p className="text-gray-600 mt-2">
-            Update your note or delete it permanently.
-          </p>
-        </header>
+    <section className="dashboard-content">
+      <div className="dashboard-container dashboard-container-narrow">
+        <div className="dashboard-card">
+          <header className="mb-6">
+            <h1 className="card-title">Edit note</h1>
+            <p className="card-subtitle">
+              Update your note or delete it permanently.
+            </p>
+          </header>
 
-        <form onSubmit={handleSave} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Title
-            </label>
-            <input
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-              className="w-full rounded-xl border border-gray-200 p-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Content
-            </label>
-            <textarea
-              value={content}
-              onChange={(event) => setContent(event.target.value)}
-              rows={6}
-              className="w-full rounded-xl border border-gray-200 p-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
-          </div>
-
-          <div className="border-t pt-4">
-            <h2 className="text-sm font-semibold text-gray-700">Song</h2>
-            {selectedTrack && (
-              <div className="mt-3 flex flex-wrap items-center gap-3 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3">
-                <div className="h-12 w-12 rounded-lg bg-white overflow-hidden flex items-center justify-center text-xs text-gray-400">
-                  {selectedTrack.image_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={selectedTrack.image_url}
-                      alt={`${selectedTrack.title} cover`}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    "No art"
-                  )}
-                </div>
-                <div className="flex-1 min-w-45">
-                  <p className="text-sm font-semibold text-gray-900">
-                    {selectedTrack.title}
-                  </p>
-                  <p className="text-xs text-gray-600">
-                    {selectedTrack.artist}
-                    {selectedTrack.album ? ` · ${selectedTrack.album}` : ""}
-                  </p>
-                  {selectedTrack.preview_url ? (
-                    <div className="mt-2">
-                      <audio
-                        ref={audioRef}
-                        controls
-                        autoPlay
-                        className="w-full"
-                        src={selectedTrack.preview_url}
-                        onLoadedMetadata={(event) => {
-                          setPreviewDuration(event.currentTarget.duration);
-                        }}
-                        onTimeUpdate={(event) => {
-                          setPreviewTime(event.currentTarget.currentTime);
-                        }}
-                      />
-                      <div className="mt-2">
-                        <div className="flex items-end gap-1 h-10">
-                          {waveformBars.map((height, index) => {
-                            const percent = waveformBars.length
-                              ? index / waveformBars.length
-                              : 0;
-                            const isActive = percent <= previewProgress;
-                            return (
-                              <span
-                                key={`bar-${index}`}
-                                className={`w-1 rounded-full ${
-                                  isActive ? "bg-blue-600" : "bg-blue-200"
-                                }`}
-                                style={{ height: `${height * 4}px` }}
-                              />
-                            );
-                          })}
-                        </div>
-                        <p className="text-xs text-gray-500 mt-2">
-                          {previewDuration
-                            ? `${Math.round(previewDuration)}s preview`
-                            : "Loading preview..."}
-                        </p>
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="text-xs text-gray-500 mt-2">
-                      Preview not available for this track.
-                    </p>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={handleClearSelected}
-                  className="text-xs font-semibold text-blue-700 hover:text-blue-900"
-                >
-                  Clear
-                </button>
-              </div>
-            )}
-            <div className="mt-3">
-              <label className="block text-xs font-semibold uppercase text-gray-500">
-                Buscar en Spotify
+          <form onSubmit={handleSave} className="form-stack">
+            <div className="form-field">
+              <label className="form-label" htmlFor="note-title">
+                Title
               </label>
-              <div className="flex flex-col gap-3 mt-2">
+              <input
+                id="note-title"
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                className="form-input"
+                required
+              />
+            </div>
+
+            <div className="form-field">
+              <label className="form-label" htmlFor="note-content">
+                Content
+              </label>
+              <textarea
+                id="note-content"
+                value={content}
+                onChange={(event) => setContent(event.target.value)}
+                rows={6}
+                className="form-textarea"
+                required
+              />
+            </div>
+
+            <div className="form-field">
+              <p className="form-label">Song</p>
+              {selectedTrack && (
+                <div className="track-selected mt-3">
+                  <div className="list-art">
+                    {selectedTrack.image_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={selectedTrack.image_url}
+                        alt={`${selectedTrack.title} cover`}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      "No art"
+                    )}
+                  </div>
+                  <div className="track-info">
+                    <p className="text-sm font-semibold text-gray-900">
+                      {selectedTrack.title}
+                    </p>
+                    <p className="text-xs text-gray-600">
+                      {selectedTrack.artist}
+                      {selectedTrack.album ? ` · ${selectedTrack.album}` : ""}
+                    </p>
+                    {selectedTrack.preview_url ? (
+                      <div className="mt-2">
+                        <audio
+                          ref={audioRef}
+                          controls
+                          autoPlay
+                          className="w-full"
+                          src={selectedTrack.preview_url}
+                          onLoadedMetadata={(event) => {
+                            setPreviewDuration(event.currentTarget.duration);
+                          }}
+                          onTimeUpdate={(event) => {
+                            setPreviewTime(event.currentTarget.currentTime);
+                          }}
+                        />
+                        <div className="mt-2">
+                          <div className="flex items-end gap-1 h-10">
+                            {waveformBars.map((height, index) => {
+                              const percent = waveformBars.length
+                                ? index / waveformBars.length
+                                : 0;
+                              const isActive = percent <= previewProgress;
+                              return (
+                                <span
+                                  key={`bar-${index}`}
+                                  className={`wave-bar${
+                                    isActive ? " active" : ""
+                                  }`}
+                                  style={{ height: `${height * 4}px` }}
+                                />
+                              );
+                            })}
+                          </div>
+                          <p className="form-helper mt-2">
+                            {previewDuration
+                              ? `${Math.round(previewDuration)}s preview`
+                              : "Loading preview..."}
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="form-helper mt-2">
+                        Preview not available for this track.
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleClearSelected}
+                    className="text-link"
+                  >
+                    Clear
+                  </button>
+                </div>
+              )}
+
+              <div className="form-field mt-4">
+                <label className="form-label" htmlFor="spotify-search">
+                  Search Spotify
+                </label>
                 <input
+                  id="spotify-search"
                   value={spotifyQuery}
                   onChange={(event) => setSpotifyQuery(event.target.value)}
-                  className="w-full rounded-xl border border-gray-200 p-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="form-input"
                   placeholder="Song, artist, album"
                   disabled={removeSong}
                 />
                 {spotifyMessage && (
-                  <p className="text-xs text-gray-500">{spotifyMessage}</p>
+                  <p className="form-helper">{spotifyMessage}</p>
                 )}
               </div>
 
               {isSearching && (
-                <p className="text-xs text-gray-500 mt-2">Searching...</p>
+                <p className="form-helper mt-2">Searching...</p>
               )}
 
               {spotifyResults.length > 0 && (
-                <div className="mt-4 space-y-2">
+                <div className="list-stack mt-3">
                   {spotifyResults.map((track) => (
                     <button
                       type="button"
                       key={track.id}
                       onClick={() => handleSelectTrack(track)}
-                      className="w-full text-left border border-gray-100 rounded-xl p-3 hover:border-blue-200 hover:bg-blue-50 flex gap-3"
+                      className="list-item"
                     >
-                      <div className="h-12 w-12 rounded-lg bg-gray-100 overflow-hidden flex items-center justify-center text-xs text-gray-400">
+                      <div className="list-art">
                         {track.image_url ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
@@ -449,66 +457,89 @@ export default function NoteDetailPage() {
                 </div>
               )}
             </div>
-            <div className="mt-3 grid gap-4">
+
+            <div className="form-field">
+              <label className="form-label" htmlFor="song-title">
+                Song title
+              </label>
               <input
+                id="song-title"
                 value={songTitle}
                 onChange={(event) => setSongTitle(event.target.value)}
-                className="w-full rounded-xl border border-gray-200 p-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="form-input"
                 placeholder="Song title"
                 disabled={removeSong}
               />
+            </div>
+            <div className="form-field">
+              <label className="form-label" htmlFor="song-artist">
+                Artist
+              </label>
               <input
+                id="song-artist"
                 value={songArtist}
                 onChange={(event) => setSongArtist(event.target.value)}
-                className="w-full rounded-xl border border-gray-200 p-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="form-input"
                 placeholder="Artist"
                 disabled={removeSong}
               />
+            </div>
+            <div className="form-field">
+              <label className="form-label" htmlFor="song-album">
+                Album
+              </label>
               <input
+                id="song-album"
                 value={songAlbum}
                 onChange={(event) => setSongAlbum(event.target.value)}
-                className="w-full rounded-xl border border-gray-200 p-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="form-input"
                 placeholder="Album"
                 disabled={removeSong}
               />
+            </div>
+            <div className="form-field">
+              <label className="form-label" htmlFor="song-spotify">
+                Spotify ID
+              </label>
               <input
+                id="song-spotify"
                 value={songSpotifyId}
                 onChange={(event) => setSongSpotifyId(event.target.value)}
-                className="w-full rounded-xl border border-gray-200 p-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="form-input"
                 placeholder="Spotify ID"
                 disabled={removeSong}
               />
-              <label className="flex items-center gap-2 text-sm text-gray-600">
-                <input
-                  type="checkbox"
-                  checked={removeSong}
-                  onChange={(event) => setRemoveSong(event.target.checked)}
-                />
-                Remove song from this note
-              </label>
             </div>
-          </div>
+            <label className="form-check">
+              <input
+                type="checkbox"
+                checked={removeSong}
+                onChange={(event) => setRemoveSong(event.target.checked)}
+              />{" "}
+              Remove song from this note
+            </label>
 
-          {error && <p className="text-sm text-red-600">{error}</p>}
+            {error && <p className="form-error">{error}</p>}
 
-          <div className="flex flex-wrap gap-3">
-            <button
-              type="submit"
-              disabled={isSaving}
-              className="bg-blue-600 text-white px-5 py-2 rounded-xl font-semibold disabled:opacity-50"
-            >
-              {isSaving ? "Saving..." : "Save changes"}
-            </button>
-            <button
-              type="button"
-              onClick={handleDelete}
-              disabled={isDeleting}
-              className="bg-red-600 text-white px-5 py-2 rounded-xl font-semibold disabled:opacity-50"
-            >
-              {isDeleting ? "Deleting..." : "Delete note"}
-            </button>
-          </div>
-        </form>
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="submit"
+                disabled={isSaving}
+                className="btn-primary btn-small"
+              >
+                {isSaving ? "Saving..." : "Save changes"}
+              </button>
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={isDeleting}
+                className="btn-danger"
+              >
+                {isDeleting ? "Deleting..." : "Delete note"}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     </section>
   );

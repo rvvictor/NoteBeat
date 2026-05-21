@@ -20,6 +20,23 @@ export const metadata: Metadata = {
   title: "NoteBeat | Every emotion tells a story",
   description:
     "A personal space to write, reflect, and connect through emotions, music, and AI-powered conversations.",
+  icons: {
+    icon: [
+      {
+        url: "/iconOscuro.svg",
+        media: "(prefers-color-scheme: light)",
+        type: "image/svg+xml",
+      },
+      {
+        url: "/iconClaro.svg",
+        media: "(prefers-color-scheme: dark)",
+        type: "image/svg+xml",
+      },
+      {
+        url: "/favicon.ico",
+      },
+    ],
+  },
 };
 
 export default function RootLayout({

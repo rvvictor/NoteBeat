@@ -60,7 +60,7 @@ const communityNotes = [
     date: "12 May 2026",
     song: "Night in Motion",
     artist: "SG Lewis",
-    accent: "#fff1c7",
+    accent: "#e3edff",
   },
   {
     title: "Nuevo comienzo",
@@ -80,16 +80,13 @@ export default function Home() {
         <div className="nb-container flex items-center justify-between py-4">
           <div className="flex items-center gap-3">
             <Image
-              src="./brand/logoNoteBeat.svg"
+              src="/brand/logoSOscuro.svg"
               alt="NoteBeat logo"
-              width={36}
-              height={36}
-              className="h-9 w-9"
+              width={180}
+              height={48}
+              className="h-10 w-auto sm:h-12"
               priority
             />
-            <span className="font-display text-xl sm:text-2xl font-semibold tracking-[0.04em]">
-              NoteBeat
-            </span>
           </div>
           <Link href="/login" className="btn-primary">
             Start writing

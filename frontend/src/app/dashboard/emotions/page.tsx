@@ -28,97 +28,100 @@ export default function EmotionPage() {
 
   if (isLoading) {
     return (
-      <section className="p-8">
-        <div className="max-w-6xl mx-auto">Cargando...</div>
+      <section className="dashboard-content">
+        <div className="dashboard-container">
+          <div className="dashboard-card dashboard-state">
+            Loading emotion insights...
+          </div>
+        </div>
       </section>
     );
   }
 
   if (error) {
     return (
-      <section className="p-8">
-        <div className="max-w-6xl mx-auto text-red-600">{error}</div>
+      <section className="dashboard-content">
+        <div className="dashboard-container">
+          <div className="dashboard-card dashboard-state">{error}</div>
+        </div>
       </section>
     );
   }
 
   if (!data) {
     return (
-      <section className="p-8">
-        <div className="max-w-6xl mx-auto">Sin datos.</div>
+      <section className="dashboard-content">
+        <div className="dashboard-container">
+          <div className="dashboard-card dashboard-state">
+            No emotion data yet.
+          </div>
+        </div>
       </section>
     );
   }
 
   return (
-    <section className="p-8">
-      <div className="max-w-6xl mx-auto">
-        <h1 className="text-4xl font-bold text-gray-800 mb-8">
-          Emotional Dashboard
-        </h1>
-
-        {/* Cards resumen */}
-        <div className="grid md:grid-cols-4 gap-4 mb-8">
-          <div className="bg-white rounded-2xl shadow p-5">
-            <p className="text-sm text-gray-500">Total Entries</p>
-            <p className="text-2xl font-bold text-blue-600">
-              {data.summary.total_entries}
+    <section className="dashboard-content">
+      <div className="dashboard-container">
+        <header className="dashboard-page-header">
+          <div>
+            <p className="dashboard-kicker">Emotions</p>
+            <h1 className="dashboard-title">Emotion dashboard</h1>
+            <p className="dashboard-subtitle">
+              Track your entries, dominant moods, and emotional patterns over time.
             </p>
           </div>
+          <span className="dashboard-pill">Last 30 days</span>
+        </header>
 
-          <div className="bg-white rounded-2xl shadow p-5">
-            <p className="text-sm text-gray-500">Dominant Emotion</p>
-            <p className="text-2xl font-bold text-green-600 capitalize">
+        <div className="stat-grid">
+          <div className="stat-card">
+            <p className="stat-label">Total entries</p>
+            <p className="stat-value accent">{data.summary.total_entries}</p>
+          </div>
+          <div className="stat-card">
+            <p className="stat-label">Dominant emotion</p>
+            <p className="stat-value teal capitalize">
               {data.summary.dominant_emotion}
             </p>
           </div>
-
-          <div className="bg-white rounded-2xl shadow p-5">
-            <p className="text-sm text-gray-500">Trend</p>
-            <p className="text-2xl font-bold text-purple-600 capitalize">
+          <div className="stat-card">
+            <p className="stat-label">Trend</p>
+            <p className="stat-value accent capitalize">
               {data.summary.trend}
             </p>
           </div>
-
-          <div className="bg-white rounded-2xl shadow p-5">
-            <p className="text-sm text-gray-500">Avg Intensity</p>
-            <p className="text-2xl font-bold text-orange-500">
-              {data.summary.avg_intensity}
-            </p>
+          <div className="stat-card">
+            <p className="stat-label">Avg intensity</p>
+            <p className="stat-value">{data.summary.avg_intensity}</p>
           </div>
         </div>
 
-        {/* Gráfico */}
-        <div className="mb-8">
-          <EmotionChart data={data.distribution} />
+        <div className="dashboard-card">
+          <h2 className="card-title">Emotion distribution</h2>
+          <p className="card-subtitle">
+            A snapshot of the moods showing up in your recent notes.
+          </p>
+          <div className="mt-6">
+            <EmotionChart data={data.distribution} />
+          </div>
         </div>
 
-        {/* Tabla */}
-        <div className="bg-white rounded-2xl shadow p-6">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">
-            Emotion Distribution
-          </h2>
-
-          <table className="w-full border-collapse">
+        <div className="dashboard-card mt-6">
+          <h2 className="card-title">Emotion breakdown</h2>
+          <p className="card-subtitle">Entry count by emotion label.</p>
+          <table className="dashboard-table">
             <thead>
-              <tr className="border-b text-left text-gray-600">
-                <th className="py-3">Emotion</th>
-                <th className="py-3">Count</th>
+              <tr>
+                <th>Emotion</th>
+                <th>Count</th>
               </tr>
             </thead>
-
             <tbody>
               {data.distribution.map((item) => (
-                <tr
-                  key={item.emotion}
-                  className="border-b hover:bg-gray-50"
-                >
-                  <td className="py-3 capitalize">
-                    {item.emotion}
-                  </td>
-                  <td className="py-3 font-semibold">
-                    {item.count}
-                  </td>
+                <tr key={item.emotion}>
+                  <td className="capitalize">{item.emotion}</td>
+                  <td>{item.count}</td>
                 </tr>
               ))}
             </tbody>
