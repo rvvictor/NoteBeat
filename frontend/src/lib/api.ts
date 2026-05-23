@@ -105,6 +105,20 @@ export async function logout(): Promise<{ message: string }> {
   return res.json();
 }
 
+export async function getCurrentUser(): Promise<{ id: string; email: string; username: string }> {
+  const res = await fetch(`${API_BASE}/auth/me`, {
+    credentials: "include",
+    cache: "no-store",
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new ApiError(res.status, text);
+  }
+
+  return res.json();
+}
+
 export async function getNotes(): Promise<NoteItem[]> {
   const res = await fetch(`${API_BASE}/notes`, {
     credentials: "include",

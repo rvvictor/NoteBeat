@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { logout } from "@/lib/api";
+import { logout, getCurrentUser, ApiError } from "@/lib/api";
 
 export default function DashboardLayout({
   children,
@@ -15,6 +15,18 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [username, setUsername] = useState<string | null>(null);
+
+  useEffect(() => {
+    getCurrentUser()
+      .then((user) => setUsername(user.username))
+      .catch((err) => {
+        if (err instanceof ApiError && err.status === 401) {
+          router.push("/login");
+        }
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleLogout = async () => {
     if (isLoggingOut) {
@@ -161,7 +173,9 @@ export default function DashboardLayout({
         <header className="dashboard-topbar">
           <div>
             <p className="dashboard-topbar-label">Dashboard</p>
-            <h2 className="dashboard-topbar-title">Welcome back</h2>
+            <h2 className="dashboard-topbar-title">
+              Welcome back{username && `, ${username}`}
+            </h2>
           </div>
           <div className="dashboard-topbar-actions">
             <Link href="/dashboard/notes" className="btn-primary btn-small">

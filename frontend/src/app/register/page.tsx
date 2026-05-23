@@ -10,16 +10,45 @@ export default function RegisterPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [username, setUsername] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [usernameError, setUsernameError] = useState<string | null>(null);
+
+  const validateUsername = (value: string): string | null => {
+    if (!value) {
+      return "Username is required";
+    }
+    if (value.length < 3) {
+      return "Username must be at least 3 characters";
+    }
+    if (value.length > 20) {
+      return "Username must be less than 20 characters";
+    }
+    if (!/^[a-zA-Z0-9_]+$/.test(value)) {
+      return "Username can only contain letters, numbers, and underscores";
+    }
+    if (!/^[a-zA-Z]/.test(value)) {
+      return "Username must start with a letter";
+    }
+    return null;
+  };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsLoading(true);
     setError(null);
+    setUsernameError(null);
+
+    const usernameValidationError = validateUsername(username);
+    if (usernameValidationError) {
+      setUsernameError(usernameValidationError);
+      setIsLoading(false);
+      return;
+    }
 
     try {
-      await register({ email, password });
+      await register({ email, password, username });
       router.push("/login");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
@@ -119,6 +148,28 @@ export default function RegisterPage() {
             </p>
 
             <form onSubmit={handleSubmit} className="auth-form">
+              <div className="auth-field">
+                <label className="auth-label" htmlFor="register-username">
+                  Username
+                </label>
+                <input
+                  id="register-username"
+                  type="text"
+                  value={username}
+                  onChange={(event) => {
+                    setUsername(event.target.value);
+                    setUsernameError(null);
+                  }}
+                  className="auth-input"
+                  required
+                  minLength={3}
+                  maxLength={20}
+                  pattern="^[a-zA-Z][a-zA-Z0-9_]*$"
+                  title="Username must start with a letter and contain only letters, numbers, and underscores"
+                />
+                {usernameError && <p className="auth-error">{usernameError}</p>}
+              </div>
+
               <div className="auth-field">
                 <label className="auth-label" htmlFor="register-email">
                   Email

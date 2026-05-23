@@ -22,9 +22,15 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
     if existing_user:
         raise HTTPException(status_code=400, detail="User already exists")
 
+    existing_username = db.query(User).filter(User.username == user.username).first()
+
+    if existing_username:
+        raise HTTPException(status_code=400, detail="Username already taken")
+
     new_user = User(
         email=user.email,
-        password=hash_password(user.password)
+        password=hash_password(user.password),
+        username=user.username
     )
 
     db.add(new_user)
@@ -67,4 +73,4 @@ def logout(response: Response):
 
 @router.get("/me", response_model=UserOut)
 def get_me(user=Depends(get_current_user)):
-    return UserOut(id=user.id, email=user.email)
+    return UserOut(id=user.id, email=user.email, username=user.username)
