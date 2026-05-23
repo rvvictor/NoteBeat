@@ -38,6 +38,12 @@ export default function DashboardLayout({
   const isEmotions = pathname?.startsWith("/dashboard/emotions");
   const isNotes = pathname?.startsWith("/dashboard/notes");
   const isChat = pathname?.startsWith("/dashboard/chat");
+  const isDashboardHome = pathname === "/dashboard";
+
+  // Para la página principal del dashboard, usar un layout diferente
+  if (isDashboardHome) {
+    return <main className="dashboard-home-container">{children}</main>;
+  }
 
   return (
     <div className="dashboard-shell">
@@ -54,6 +60,25 @@ export default function DashboardLayout({
         </div>
 
         <nav className="dashboard-nav">
+          <Link
+            href="/dashboard"
+            className={`dashboard-nav-link${isDashboardHome ? " active" : ""}`}
+            aria-current={isDashboardHome ? "page" : undefined}
+          >
+            <svg
+              className="dashboard-nav-icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden="true"
+            >
+              <path
+                d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"
+                stroke="currentColor"
+                strokeWidth="1.6"
+              />
+            </svg>
+            Home
+          </Link>
           <Link
             href="/dashboard/emotions"
             className={`dashboard-nav-link${isEmotions ? " active" : ""}`}
