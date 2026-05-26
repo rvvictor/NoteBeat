@@ -50,11 +50,20 @@ export default function DashboardLayout({
   const isEmotions = pathname?.startsWith("/dashboard/emotions");
   const isNotes = pathname?.startsWith("/dashboard/notes");
   const isChat = pathname?.startsWith("/dashboard/chat");
+  const isHome = pathname === "/dashboard";
+
+  if (isHome) {
+    return <div className="dashboard-home-shell">{children}</div>;
+  }
 
   return (
     <div className="dashboard-shell">
       <aside className="dashboard-sidebar">
-        <div className="dashboard-brand">
+        <Link
+          href="/dashboard"
+          className="dashboard-brand"
+          aria-label="NoteBeat dashboard home"
+        >
           <Image
             src="/brand/logoSOscuro.svg"
             alt="NoteBeat"
@@ -63,7 +72,7 @@ export default function DashboardLayout({
             className="dashboard-logo"
             priority
           />
-        </div>
+        </Link>
 
         <nav className="dashboard-nav">
           <Link

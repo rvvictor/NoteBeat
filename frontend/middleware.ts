@@ -15,7 +15,7 @@ export function middleware(request: NextRequest) {
 
   if (token && (pathname === "/login" || pathname === "/register")) {
     const dashboardUrl = request.nextUrl.clone();
-    dashboardUrl.pathname = "/dashboard/emotions";
+    dashboardUrl.pathname = "/dashboard";
     return NextResponse.redirect(dashboardUrl);
   }
 
