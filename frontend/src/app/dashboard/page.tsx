@@ -60,6 +60,26 @@ const getInitials = (name: string) => {
   return letters.join("") || "NB";
 };
 
+const getEmotionTone = (emotion: string) => {
+  const value = emotion.toLowerCase();
+  if (["joy", "happy", "happiness", "love", "gratitude", "calm"].some((key) => value.includes(key))) {
+    return "emotion-chip emotion-chip--sun";
+  }
+  if (["sad", "sadness", "lonely", "grief"].some((key) => value.includes(key))) {
+    return "emotion-chip emotion-chip--cool";
+  }
+  if (["angry", "anger", "frustrated", "rage"].some((key) => value.includes(key))) {
+    return "emotion-chip emotion-chip--ember";
+  }
+  if (["anxious", "anxiety", "fear", "stress"].some((key) => value.includes(key))) {
+    return "emotion-chip emotion-chip--violet";
+  }
+  if (["neutral", "tired", "numb"].some((key) => value.includes(key))) {
+    return "emotion-chip emotion-chip--stone";
+  }
+  return "emotion-chip emotion-chip--mint";
+};
+
 export default function DashboardHomePage() {
   const router = useRouter();
   const quickTitleRef = useRef<HTMLInputElement | null>(null);
@@ -196,6 +216,16 @@ export default function DashboardHomePage() {
     return Number.isFinite(value) ? value.toFixed(1) : String(value);
   }, [stats]);
 
+  const emotionHighlights = useMemo(() => {
+    if (!stats) {
+      return [];
+    }
+
+    return [...stats.distribution]
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+  }, [stats]);
+
   const handleAddNoteClick = () => {
     setIsFullEditorOpen(true);
   };
@@ -242,85 +272,6 @@ export default function DashboardHomePage() {
     setIsFullEditorOpen(false);
     setQuickStatus("Saved to notes.");
   };
-
-  const noteInsights = useMemo(() => {
-    const now = new Date();
-    const startWeek = new Date(now);
-    startWeek.setDate(startWeek.getDate() - 6);
-    const startMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const startYear = new Date(now.getFullYear(), 0, 1);
-    const start30 = new Date(now);
-    start30.setDate(start30.getDate() - 29);
-
-    const getDateKey = (date: Date) => {
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, "0");
-      const day = String(date.getDate()).padStart(2, "0");
-      return `${year}-${month}-${day}`;
-    };
-
-    const noteDates = notes
-      .map((note) => new Date(note.created_at))
-      .filter((date) => !Number.isNaN(date.getTime()));
-
-    const totalNotes = notes.length;
-    const weekNotes = noteDates.filter((date) => date >= startWeek).length;
-    const monthNotes = noteDates.filter((date) => date >= startMonth).length;
-    const yearNotes = noteDates.filter((date) => date >= startYear).length;
-
-    const activeDays = new Set(
-      noteDates
-        .filter((date) => date >= start30)
-        .map((date) => getDateKey(date))
-    );
-
-    const daySet = new Set(noteDates.map((date) => getDateKey(date)));
-    const todayKey = getDateKey(now);
-    const yesterday = new Date(now);
-    yesterday.setDate(yesterday.getDate() - 1);
-    const endDate = daySet.has(todayKey) ? now : yesterday;
-
-    let currentStreak = 0;
-    const cursor = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
-    while (daySet.has(getDateKey(cursor))) {
-      currentStreak += 1;
-      cursor.setDate(cursor.getDate() - 1);
-    }
-
-    const sortedKeys = Array.from(daySet)
-      .map((key) => new Date(key))
-      .filter((date) => !Number.isNaN(date.getTime()))
-      .sort((a, b) => a.getTime() - b.getTime());
-
-    let bestStreak = 0;
-    let running = 0;
-    let lastTime = 0;
-    sortedKeys.forEach((date) => {
-      const time = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
-      if (lastTime && time - lastTime === 86400000) {
-        running += 1;
-      } else {
-        running = 1;
-      }
-      bestStreak = Math.max(bestStreak, running);
-      lastTime = time;
-    });
-
-    const withSongs = notes.filter(
-      (note) => note.song?.title && note.song?.artist
-    ).length;
-
-    return {
-      totalNotes,
-      weekNotes,
-      monthNotes,
-      yearNotes,
-      activeDays: activeDays.size,
-      currentStreak,
-      bestStreak,
-      withSongs,
-    };
-  }, [notes]);
 
   const recap = useMemo(() => {
     const now = new Date();
@@ -653,7 +604,7 @@ export default function DashboardHomePage() {
         <div className="home-stats-header">
           <div>
             <p className="home-panel-kicker">Dashboard</p>
-            <h2 className="home-panel-title">Your weekly snapshot</h2>
+            <h2 className="home-panel-title">Your emotion pulse</h2>
           </div>
           <button
             type="button"
@@ -667,42 +618,24 @@ export default function DashboardHomePage() {
 
         {logoutError && <p className="home-error">{logoutError}</p>}
 
-        <div className="home-insight-grid">
-          <div className="home-insight-card">
-            <p className="home-stat-label">Notes this week</p>
-            <p className="home-stat-value blue">
-              {notesLoading ? "--" : noteInsights.weekNotes}
-            </p>
-            <p className="home-stat-meta">
-              {notesLoading
-                ? "Loading notes"
-                : `${noteInsights.currentStreak} day streak`}
+        <div className="home-hero-mood">
+          <div>
+            <p className="home-stat-label">Dominant mood</p>
+            <p className="home-hero-mood-value capitalize">
+              {statsLoading || !stats ? "--" : stats.summary.dominant_emotion}
             </p>
           </div>
-          <div className="home-insight-card">
-            <p className="home-stat-label">Active days</p>
-            <p className="home-stat-value">
-              {notesLoading ? "--" : noteInsights.activeDays}
-            </p>
-            <p className="home-stat-meta">Last 30 days</p>
-          </div>
-          <div className="home-insight-card">
-            <p className="home-stat-label">Notes this month</p>
-            <p className="home-stat-value">
-              {notesLoading ? "--" : noteInsights.monthNotes}
-            </p>
-            <p className="home-stat-meta">
-              {notesLoading
-                ? "Loading notes"
-                : `${noteInsights.withSongs} with songs`}
-            </p>
-          </div>
-          <div className="home-insight-card">
-            <p className="home-stat-label">Best streak</p>
-            <p className="home-stat-value teal">
-              {notesLoading ? "--" : noteInsights.bestStreak}
-            </p>
-            <p className="home-stat-meta">All-time</p>
+          <div className="home-hero-mood-meta">
+            <div>
+              <p className="home-stat-label">Intensity</p>
+              <p className="home-hero-mood-number">{avgIntensityLabel}</p>
+            </div>
+            <div>
+              <p className="home-stat-label">Entries</p>
+              <p className="home-hero-mood-number">
+                {statsLoading || !stats ? "--" : stats.summary.total_entries}
+              </p>
+            </div>
           </div>
         </div>
 
@@ -710,7 +643,7 @@ export default function DashboardHomePage() {
           <div className="home-emotion-header">
             <div>
               <p className="home-stat-label">Emotion pulse</p>
-              <p className="home-emotion-title">How you are feeling</p>
+              <p className="home-emotion-title">Mood color map</p>
             </div>
             <span className="home-emotion-pill">Last 30 days</span>
           </div>
@@ -722,36 +655,29 @@ export default function DashboardHomePage() {
             <p className="home-empty">No emotion stats yet.</p>
           )}
           {!statsLoading && !statsError && stats && (
-            <div className="home-emotion-grid">
-              <div>
-                <p className="home-emotion-label">Dominant mood</p>
-                <p className="home-emotion-value capitalize">
-                  {stats.summary.dominant_emotion}
-                </p>
+            <>
+              <div className="home-emotion-chips">
+                {emotionHighlights.map((item) => (
+                  <div key={item.emotion} className={getEmotionTone(item.emotion)}>
+                    <span className="emotion-chip__label capitalize">
+                      {item.emotion}
+                    </span>
+                    <span className="emotion-chip__badge">{item.count}</span>
+                  </div>
+                ))}
               </div>
-              <div>
-                <p className="home-emotion-label">Trend</p>
-                <p className="home-emotion-value capitalize">
+              <div className="home-emotion-trend">
+                <span className="home-emotion-trend-label">Trend</span>
+                <span className="home-emotion-trend-value capitalize">
                   {stats.summary.trend}
-                </p>
+                </span>
               </div>
-              <div>
-                <p className="home-emotion-label">Avg intensity</p>
-                <p className="home-emotion-value">{avgIntensityLabel}</p>
-              </div>
-              <div>
-                <p className="home-emotion-label">Entries</p>
-                <p className="home-emotion-value">{stats.summary.total_entries}</p>
-              </div>
-            </div>
+            </>
           )}
         </div>
 
         <div className="home-recap">
           <p className="home-recap-title">Recap</p>
-          <p className="home-recap-subtitle">
-            Based on songs saved with your notes.
-          </p>
           <div className="home-recap-grid">
             {recap.map((item) => (
               <div key={item.label} className="home-recap-card">
@@ -761,15 +687,15 @@ export default function DashboardHomePage() {
                 ) : (
                   <div className="home-recap-list">
                     <div>
-                      <p className="home-recap-key">Top song</p>
+                      <p className="home-recap-key">Song</p>
                       <p className="home-recap-value">{item.topSong.label}</p>
                     </div>
                     <div>
-                      <p className="home-recap-key">Top album</p>
+                      <p className="home-recap-key">Album</p>
                       <p className="home-recap-value">{item.topAlbum.label}</p>
                     </div>
                     <div>
-                      <p className="home-recap-key">Top artist</p>
+                      <p className="home-recap-key">Artist</p>
                       <p className="home-recap-value">{item.topArtist.label}</p>
                     </div>
                   </div>
