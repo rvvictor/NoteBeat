@@ -14,6 +14,7 @@ import {
 } from "@/lib/api";
 import { NoteItem } from "@/lib/notes";
 import { EmotionDashboard } from "@/lib/emotions";
+import NoteComposer from "@/components/NoteComposer";
 
 const monthFormatter = new Intl.DateTimeFormat("en-US", { month: "long" });
 const dateFormatter = new Intl.DateTimeFormat("en-US", {
@@ -63,6 +64,7 @@ export default function DashboardHomePage() {
   const router = useRouter();
   const centerPanelRef = useRef<HTMLElement | null>(null);
   const quickTitleRef = useRef<HTMLInputElement | null>(null);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
   const [username, setUsername] = useState("");
   const [userError, setUserError] = useState<string | null>(null);
@@ -80,6 +82,8 @@ export default function DashboardHomePage() {
   const [quickError, setQuickError] = useState<string | null>(null);
   const [quickStatus, setQuickStatus] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isFullEditorOpen, setIsFullEditorOpen] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(7);
 
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);
@@ -129,6 +133,10 @@ export default function DashboardHomePage() {
     return [...notes].sort((a, b) => getNoteTime(b) - getNoteTime(a));
   }, [notes]);
 
+  const visibleNotes = useMemo(() => {
+    return sortedNotes.slice(0, visibleCount);
+  }, [sortedNotes, visibleCount]);
+
   const groupedNotes = useMemo(() => {
     const groups = new Map<string, NoteItem[]>();
     const now = new Date();
@@ -148,7 +156,7 @@ export default function DashboardHomePage() {
       }
     };
 
-    sortedNotes.forEach((note) => {
+    visibleNotes.forEach((note) => {
       const noteDate = new Date(getNoteDateValue(note));
       if (Number.isNaN(noteDate.getTime())) {
         addGroup("Unknown date", note);
@@ -172,7 +180,7 @@ export default function DashboardHomePage() {
     });
 
     return Array.from(groups, ([label, items]) => ({ label, items }));
-  }, [sortedNotes]);
+  }, [visibleNotes]);
 
   const distribution = useMemo(() => {
     if (!stats) {
@@ -200,8 +208,7 @@ export default function DashboardHomePage() {
   }, [stats]);
 
   const handleAddNoteClick = () => {
-    centerPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-    quickTitleRef.current?.focus();
+    setIsFullEditorOpen(true);
   };
 
   const handleQuickSave = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -241,6 +248,35 @@ export default function DashboardHomePage() {
     }
   };
 
+  const handleFullNoteCreated = (created: NoteItem) => {
+    setNotes((prev) => [created, ...prev]);
+    setIsFullEditorOpen(false);
+    setQuickStatus("Saved to notes.");
+  };
+
+  useEffect(() => {
+    if (!loadMoreRef.current) {
+      return;
+    }
+
+    if (visibleCount >= sortedNotes.length) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setVisibleCount((prev) => Math.min(prev + 4, sortedNotes.length));
+        }
+      },
+      { rootMargin: "120px" }
+    );
+
+    observer.observe(loadMoreRef.current);
+
+    return () => observer.disconnect();
+  }, [sortedNotes.length, visibleCount]);
+
   const handleLogout = async () => {
     if (isLoggingOut) {
       return;
@@ -261,7 +297,8 @@ export default function DashboardHomePage() {
   };
 
   return (
-    <main className="dashboard-home-grid">
+    <div className="dashboard-home-shell">
+      <main className="dashboard-home-grid">
       <section
         className="home-panel home-notes-panel"
         style={{ animationDelay: "0.05s" }}
@@ -334,6 +371,11 @@ export default function DashboardHomePage() {
                   </div>
                 </div>
               ))}
+              {visibleCount < sortedNotes.length && (
+                <div className="home-load-more" ref={loadMoreRef}>
+                  Loading more notes...
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -405,20 +447,55 @@ export default function DashboardHomePage() {
             {quickStatus && <p className="home-quick-status">{quickStatus}</p>}
 
             <div className="home-quick-actions">
-              <Link href="/dashboard/notes" className="home-quick-link">
+              <button
+                type="button"
+                className="home-quick-link"
+                onClick={() => setIsFullEditorOpen(true)}
+              >
                 Open full editor
-              </Link>
+              </button>
               <button
                 type="submit"
                 className="home-quick-button"
                 disabled={isSaving}
               >
-                {isSaving ? "Saving..." : "Save quick note"}
+                {isSaving ? "Saving..." : "Post quick note"}
               </button>
             </div>
           </form>
         </div>
       </section>
+
+      {isFullEditorOpen && (
+        <div className="home-modal" role="dialog" aria-modal="true">
+          <div
+            className="home-modal-backdrop"
+            onClick={() => setIsFullEditorOpen(false)}
+          />
+          <div className="home-modal-card">
+            <div className="home-editor-header">
+              <div>
+                <p className="home-panel-kicker">Full note</p>
+                <h2 className="home-panel-title">Compose with details</h2>
+                <p className="home-panel-subtitle">
+                  Add a song, attach context, and save the moment.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="home-editor-close"
+                onClick={() => setIsFullEditorOpen(false)}
+              >
+                Close
+              </button>
+            </div>
+            <NoteComposer
+              onCreated={handleFullNoteCreated}
+              submitLabel="Post note"
+            />
+          </div>
+        </div>
+      )}
 
       <section
         className="home-panel home-stats-panel"
@@ -495,6 +572,7 @@ export default function DashboardHomePage() {
           </>
         )}
       </section>
-    </main>
+      </main>
+    </div>
   );
 }
