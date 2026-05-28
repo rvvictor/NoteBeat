@@ -60,24 +60,83 @@ const getInitials = (name: string) => {
   return letters.join("") || "NB";
 };
 
-const getEmotionTone = (emotion: string) => {
-  const value = emotion.toLowerCase();
-  if (["joy", "happy", "happiness", "love", "gratitude", "calm"].some((key) => value.includes(key))) {
-    return "emotion-chip emotion-chip--sun";
+type RecapRange = "week" | "month" | "year";
+
+type RecapItem = {
+  label: string;
+  count: number;
+  imageUrl?: string | null;
+};
+
+const recapRangeOptions: { id: RecapRange; label: string; days: number }[] = [
+  { id: "week", label: "Week", days: 7 },
+  { id: "month", label: "Month", days: 30 },
+  { id: "year", label: "Year", days: 365 },
+];
+
+const emptyRecapItem: RecapItem = {
+  label: "No data yet",
+  count: 0,
+  imageUrl: null,
+};
+
+const normalizeDate = (date: Date) =>
+  new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+const getRecapStartDate = (days: number) => {
+  const start = normalizeDate(new Date());
+  start.setDate(start.getDate() - (days - 1));
+  return start;
+};
+
+const getTopRecapItem = (
+  items: NoteItem[],
+  getKey: (note: NoteItem) => string | null,
+  formatLabel: (key: string) => string
+): RecapItem => {
+  const counts = new Map<string, { count: number; imageUrl?: string | null }>();
+
+  items.forEach((note) => {
+    const key = getKey(note);
+    if (!key) {
+      return;
+    }
+
+    const imageUrl = note.song?.image_url ?? null;
+    const entry = counts.get(key);
+
+    if (entry) {
+      entry.count += 1;
+      if (!entry.imageUrl && imageUrl) {
+        entry.imageUrl = imageUrl;
+      }
+      return;
+    }
+
+    counts.set(key, { count: 1, imageUrl });
+  });
+
+  let topKey: string | null = null;
+  let topCount = 0;
+  let topImageUrl: string | null = null;
+
+  counts.forEach((value, key) => {
+    if (value.count > topCount) {
+      topKey = key;
+      topCount = value.count;
+      topImageUrl = value.imageUrl ?? null;
+    }
+  });
+
+  if (!topKey) {
+    return emptyRecapItem;
   }
-  if (["sad", "sadness", "lonely", "grief"].some((key) => value.includes(key))) {
-    return "emotion-chip emotion-chip--cool";
-  }
-  if (["angry", "anger", "frustrated", "rage"].some((key) => value.includes(key))) {
-    return "emotion-chip emotion-chip--ember";
-  }
-  if (["anxious", "anxiety", "fear", "stress"].some((key) => value.includes(key))) {
-    return "emotion-chip emotion-chip--violet";
-  }
-  if (["neutral", "tired", "numb"].some((key) => value.includes(key))) {
-    return "emotion-chip emotion-chip--stone";
-  }
-  return "emotion-chip emotion-chip--mint";
+
+  return {
+    label: formatLabel(topKey),
+    count: topCount,
+    imageUrl: topImageUrl,
+  };
 };
 
 export default function DashboardHomePage() {
@@ -103,6 +162,7 @@ export default function DashboardHomePage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isFullEditorOpen, setIsFullEditorOpen] = useState(false);
   const [visibleCount, setVisibleCount] = useState(7);
+  const [recapRange, setRecapRange] = useState<RecapRange>("week");
 
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);
@@ -216,16 +276,6 @@ export default function DashboardHomePage() {
     return Number.isFinite(value) ? value.toFixed(1) : String(value);
   }, [stats]);
 
-  const emotionHighlights = useMemo(() => {
-    if (!stats) {
-      return [];
-    }
-
-    return [...stats.distribution]
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 5);
-  }, [stats]);
-
   const handleAddNoteClick = () => {
     setIsFullEditorOpen(true);
   };
@@ -273,87 +323,84 @@ export default function DashboardHomePage() {
     setQuickStatus("Saved to notes.");
   };
 
-  const recap = useMemo(() => {
-    const now = new Date();
-    const startWeek = new Date(now);
-    startWeek.setDate(startWeek.getDate() - 6);
-    const startMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const startYear = new Date(now.getFullYear(), 0, 1);
-
-    const getTop = (
-      items: NoteItem[],
-      getKey: (note: NoteItem) => string | null,
-      formatLabel: (key: string) => string
-    ) => {
-      const counts = new Map<string, number>();
-      items.forEach((note) => {
-        const key = getKey(note);
-        if (!key) {
-          return;
-        }
-        counts.set(key, (counts.get(key) ?? 0) + 1);
-      });
-      let topKey: string | null = null;
-      let topCount = 0;
-      counts.forEach((count, key) => {
-        if (count > topCount) {
-          topCount = count;
-          topKey = key;
-        }
-      });
-      if (!topKey) {
-        return { label: "No data yet", count: 0 };
+  const oldestNoteDate = useMemo(() => {
+    let oldest: Date | null = null;
+    notes.forEach((note) => {
+      const date = new Date(note.created_at);
+      if (Number.isNaN(date.getTime())) {
+        return;
       }
-      return { label: formatLabel(topKey), count: topCount };
-    };
-
-    const buildRecap = (label: string, start: Date) => {
-      const filtered = notes.filter((note) => {
-        const date = new Date(note.created_at);
-        return !Number.isNaN(date.getTime()) && date >= start;
-      });
-      const withSong = filtered.filter(
-        (note) => note.song?.title && note.song?.artist
-      );
-
-      const topSong = getTop(
-        withSong,
-        (note) =>
-          note.song?.title && note.song?.artist
-            ? `${note.song.title}||${note.song.artist}`
-            : null,
-        (key) => {
-          const [title, artist] = key.split("||");
-          return `${title} · ${artist}`;
-        }
-      );
-
-      const topAlbum = getTop(
-        withSong,
-        (note) => (note.song?.album ? note.song.album : null),
-        (key) => key
-      );
-
-      const topArtist = getTop(
-        withSong,
-        (note) => (note.song?.artist ? note.song.artist : null),
-        (key) => key
-      );
-
-      return {
-        label,
-        topSong,
-        topAlbum,
-        topArtist,
-      };
-    };
-
-    return [
-      buildRecap("This week", startWeek),
-      buildRecap("This month", startMonth),
-      buildRecap("This year", startYear),
-    ];
+      if (!oldest || date.getTime() < oldest.getTime()) {
+        oldest = date;
+      }
+    });
+    return oldest;
   }, [notes]);
+
+  const recapSummary = useMemo(() => {
+    const rangeConfig = recapRangeOptions.find(
+      (option) => option.id === recapRange
+    );
+
+    if (!rangeConfig) {
+      return {
+        hasCoverage: false,
+        hasData: false,
+        topSong: emptyRecapItem,
+        topAlbum: emptyRecapItem,
+        topArtist: emptyRecapItem,
+      };
+    }
+
+    const start = getRecapStartDate(rangeConfig.days);
+    const hasCoverage =
+      recapRange === "year"
+        ? Boolean(
+            oldestNoteDate &&
+              normalizeDate(oldestNoteDate).getTime() <= start.getTime()
+          )
+        : true;
+
+    const filtered = notes.filter((note) => {
+      const date = new Date(note.created_at);
+      return !Number.isNaN(date.getTime()) && date >= start;
+    });
+    const withSong = filtered.filter(
+      (note) => note.song?.title && note.song?.artist
+    );
+
+    const topSong = getTopRecapItem(
+      withSong,
+      (note) =>
+        note.song?.title && note.song?.artist
+          ? `${note.song.title}||${note.song.artist}`
+          : null,
+      (key) => {
+        const [title, artist] = key.split("||");
+        return `${title} · ${artist}`;
+      }
+    );
+
+    const topAlbum = getTopRecapItem(
+      withSong,
+      (note) => (note.song?.album ? note.song.album : null),
+      (key) => key
+    );
+
+    const topArtist = getTopRecapItem(
+      withSong,
+      (note) => (note.song?.artist ? note.song.artist : null),
+      (key) => key
+    );
+
+    return {
+      hasCoverage,
+      hasData: withSong.length > 0,
+      topSong,
+      topAlbum,
+      topArtist,
+    };
+  }, [notes, recapRange, oldestNoteDate]);
 
   useEffect(() => {
     if (!loadMoreRef.current) {
@@ -639,70 +686,72 @@ export default function DashboardHomePage() {
           </div>
         </div>
 
-        <div className="home-emotion-card">
-          <div className="home-emotion-header">
-            <div>
-              <p className="home-stat-label">Emotion pulse</p>
-              <p className="home-emotion-title">Mood color map</p>
-            </div>
-            <span className="home-emotion-pill">Last 30 days</span>
-          </div>
-          {statsLoading && <p className="home-empty">Loading emotions...</p>}
-          {!statsLoading && statsError && (
-            <p className="home-error">{statsError}</p>
-          )}
-          {!statsLoading && !statsError && !stats && (
-            <p className="home-empty">No emotion stats yet.</p>
-          )}
-          {!statsLoading && !statsError && stats && (
-            <>
-              <div className="home-emotion-chips">
-                {emotionHighlights.map((item) => (
-                  <div key={item.emotion} className={getEmotionTone(item.emotion)}>
-                    <span className="emotion-chip__label capitalize">
-                      {item.emotion}
-                    </span>
-                    <span className="emotion-chip__badge">{item.count}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="home-emotion-trend">
-                <span className="home-emotion-trend-label">Trend</span>
-                <span className="home-emotion-trend-value capitalize">
-                  {stats.summary.trend}
-                </span>
-              </div>
-            </>
-          )}
-        </div>
+        {statsError && <p className="home-error">{statsError}</p>}
 
-        <div className="home-recap">
-          <p className="home-recap-title">Recap</p>
-          <div className="home-recap-grid">
-            {recap.map((item) => (
-              <div key={item.label} className="home-recap-card">
-                <p className="home-recap-label">{item.label}</p>
-                {notesLoading ? (
-                  <p className="home-empty">Loading recap...</p>
-                ) : (
-                  <div className="home-recap-list">
-                    <div>
-                      <p className="home-recap-key">Song</p>
-                      <p className="home-recap-value">{item.topSong.label}</p>
-                    </div>
-                    <div>
-                      <p className="home-recap-key">Album</p>
-                      <p className="home-recap-value">{item.topAlbum.label}</p>
-                    </div>
-                    <div>
-                      <p className="home-recap-key">Artist</p>
-                      <p className="home-recap-value">{item.topArtist.label}</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
+        <div className="home-recap-panel">
+          <div className="home-recap-header">
+            <div>
+              <p className="home-stat-label">Recap</p>
+              <p className="home-recap-title">Top music moments</p>
+            </div>
+            <div
+              className="home-recap-switch"
+              role="tablist"
+              aria-label="Recap range"
+            >
+              {recapRangeOptions.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  className={`home-recap-tab${recapRange === option.id ? " active" : ""}`}
+                  onClick={() => setRecapRange(option.id)}
+                  role="tab"
+                  aria-selected={recapRange === option.id}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
           </div>
+
+          {notesLoading ? (
+            <p className="home-empty">Loading recap...</p>
+          ) : !recapSummary.hasCoverage ? (
+            <p className="home-empty">
+              {recapRange === "year"
+                ? "Not enough data for a full year yet."
+                : "Not enough data yet."}
+            </p>
+          ) : !recapSummary.hasData ? (
+            <p className="home-empty">No data yet.</p>
+          ) : (
+            <div className="home-recap-list">
+              {[
+                { label: "Song", item: recapSummary.topSong, alt: "Song cover" },
+                { label: "Album", item: recapSummary.topAlbum, alt: "Album art" },
+                { label: "Artist", item: recapSummary.topArtist, alt: "Artist photo" },
+              ].map((entry) => (
+                <div key={entry.label} className="home-recap-item">
+                  <div className="home-recap-art">
+                    {entry.item.imageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={entry.item.imageUrl}
+                        alt={entry.alt}
+                        className="home-recap-img"
+                      />
+                    ) : (
+                      <span className="home-recap-art-placeholder">No art</span>
+                    )}
+                  </div>
+                  <div className="home-recap-text">
+                    <p className="home-recap-key">{entry.label}</p>
+                    <p className="home-recap-value">{entry.item.label}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
       </main>
