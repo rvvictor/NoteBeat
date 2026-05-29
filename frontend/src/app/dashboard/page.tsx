@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ApiError,
+  chatWithAI,
   createNote,
   getCurrentUser,
   getEmotionDashboard,
@@ -66,6 +67,11 @@ type RecapItem = {
   label: string;
   count: number;
   imageUrl?: string | null;
+};
+
+type ChatMessage = {
+  role: "user" | "assistant";
+  content: string;
 };
 
 const recapRangeOptions: { id: RecapRange; label: string; days: number }[] = [
@@ -163,6 +169,12 @@ export default function DashboardHomePage() {
   const [isFullEditorOpen, setIsFullEditorOpen] = useState(false);
   const [visibleCount, setVisibleCount] = useState(7);
   const [recapRange, setRecapRange] = useState<RecapRange>("week");
+
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [chatQuestion, setChatQuestion] = useState("");
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatError, setChatError] = useState<string | null>(null);
+  const [isChatLoading, setIsChatLoading] = useState(false);
 
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);
@@ -276,8 +288,51 @@ export default function DashboardHomePage() {
     return Number.isFinite(value) ? value.toFixed(1) : String(value);
   }, [stats]);
 
+  const canSendChat = useMemo(
+    () => chatQuestion.trim().length > 0,
+    [chatQuestion]
+  );
+
   const handleAddNoteClick = () => {
     setIsFullEditorOpen(true);
+  };
+
+  const handleOpenChat = () => {
+    setIsChatOpen(true);
+  };
+
+  const handleSendChat = async () => {
+    if (!canSendChat || isChatLoading) {
+      return;
+    }
+
+    const userMessage: ChatMessage = {
+      role: "user",
+      content: chatQuestion.trim(),
+    };
+
+    setChatMessages((prev) => [...prev, userMessage]);
+    setChatQuestion("");
+    setChatError(null);
+    setIsChatLoading(true);
+
+    try {
+      const response = await chatWithAI({ question: userMessage.content });
+      const assistantMessage: ChatMessage = {
+        role: "assistant",
+        content: response.answer,
+      };
+      setChatMessages((prev) => [...prev, assistantMessage]);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        router.push("/login");
+        return;
+      }
+      const message = err instanceof Error ? err.message : "Unknown error";
+      setChatError(message);
+    } finally {
+      setIsChatLoading(false);
+    }
   };
 
   const handleQuickSave = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -469,6 +524,21 @@ export default function DashboardHomePage() {
           <p className="home-notes-count">{notesCountLabel}</p>
           <button
             type="button"
+            className="home-chat-button"
+            onClick={handleOpenChat}
+            aria-label="Open AI chat"
+          >
+            <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+              <path
+                d="M5 15.5l-0.9 3L7 16.5h6.1c2 0 3.6-1.6 3.6-3.6V7.1C16.7 5.1 15.1 3.5 13.1 3.5H6.5C4.6 3.5 3 5.1 3 7.1v4.8c0 1.8 1.2 3.3 2.9 3.6z"
+                stroke="currentColor"
+                strokeWidth="1.4"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+          <button
+            type="button"
             className="home-add-note"
             onClick={handleAddNoteClick}
             aria-label="Create a new note"
@@ -612,6 +682,89 @@ export default function DashboardHomePage() {
           </form>
         </div>
       </section>
+
+      {isChatOpen && (
+        <div className="home-modal" role="dialog" aria-modal="true">
+          <div
+            className="home-modal-backdrop"
+            onClick={() => setIsChatOpen(false)}
+          />
+          <div className="home-modal-card">
+            <div className="home-editor-header">
+              <div>
+                <p className="home-panel-kicker">AI chat</p>
+                <h2 className="home-panel-title">Talk with your notes</h2>
+                <p className="home-panel-subtitle">
+                  Ask anything about your emotions and recent entries.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="home-editor-close"
+                onClick={() => setIsChatOpen(false)}
+              >
+                Close
+              </button>
+            </div>
+
+            <section className="dashboard-card">
+              <div className="chat-thread">
+                {chatMessages.length === 0 && (
+                  <div className="form-helper">
+                    Write a question to start the conversation.
+                  </div>
+                )}
+
+                {chatMessages.map((message, index) => (
+                  <div
+                    key={`${message.role}-${index}`}
+                    className={`chat-bubble ${
+                      message.role === "user" ? "user" : "ai"
+                    }`}
+                  >
+                    <p className="chat-label">
+                      {message.role === "user" ? "You" : "AI"}
+                    </p>
+                    <p className="text-gray-800 whitespace-pre-line">
+                      {message.content}
+                    </p>
+                  </div>
+                ))}
+
+                {isChatLoading && (
+                  <div className="form-helper">Thinking...</div>
+                )}
+              </div>
+            </section>
+
+            <section className="dashboard-card mt-6">
+              <label className="form-label" htmlFor="chat-question">
+                Your question
+              </label>
+              <textarea
+                id="chat-question"
+                value={chatQuestion}
+                onChange={(event) => setChatQuestion(event.target.value)}
+                rows={4}
+                className="form-textarea"
+                placeholder="e.g. Why do I feel happier when I listen to certain songs?"
+              />
+
+              {chatError && <p className="form-error mt-3">{chatError}</p>}
+
+              <div className="chat-actions">
+                <button
+                  onClick={handleSendChat}
+                  disabled={!canSendChat || isChatLoading}
+                  className="btn-primary btn-small"
+                >
+                  {isChatLoading ? "Sending..." : "Send"}
+                </button>
+              </div>
+            </section>
+          </div>
+        </div>
+      )}
 
       {isFullEditorOpen && (
         <div className="home-modal" role="dialog" aria-modal="true">
