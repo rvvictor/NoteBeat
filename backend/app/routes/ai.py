@@ -1,3 +1,5 @@
+import json
+import unicodedata
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -11,6 +13,8 @@ from app.services.ai.recommendations import recommend_actions
 from app.services.ai.reflection import reflect_on_note
 from app.services.ai.chat import chat_with_notes
 from app.services.ai.emotions import analyze_and_store_emotions
+from app.services.ai.base import run_ai_task
+from app.services.ai.utils import clean_json
 from app.models.note_emotions import NoteEmotion
 from collections import defaultdict
 from uuid import UUID
@@ -22,6 +26,8 @@ RECAP_RANGES = {
     "month": 30,
     "year": 365
 }
+
+RECAP_AI_CACHE = {}
 
 
 def _empty_recap_item():
@@ -97,6 +103,241 @@ def _build_emotion_summary(emotions):
         "avg_intensity": round(avg_intensity, 2),
         "top_emotions": top_emotions[:3]
     }
+
+
+def _top_by_count(values):
+    if not values:
+        return {
+            "label": "No data yet",
+            "count": 0
+        }
+
+    counts = defaultdict(int)
+    for value in values:
+        counts[value] += 1
+
+    label, count = max(counts.items(), key=lambda item: item[1])
+    return {
+        "label": label,
+        "count": count
+    }
+
+
+def _build_activity_summary(notes):
+    day_names = [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+        "Sunday"
+    ]
+    days = []
+    hours = []
+
+    for note in notes:
+        created_at = note.created_at
+        days.append(day_names[created_at.weekday()])
+        hours.append(created_at.hour)
+
+    top_day = _top_by_count(days)
+    top_hour = _top_by_count(hours)
+
+    if isinstance(top_hour["label"], int):
+        top_hour["label"] = f"{top_hour['label']:02d}:00"
+
+    return {
+        "top_day": top_day,
+        "top_hour": top_hour
+    }
+
+
+def _build_visibility_summary(notes):
+    private_notes = 0
+    shared_notes = 0
+
+    for note in notes:
+        visibility = getattr(note, "visibility", "private")
+        if visibility in ["public", "friends", "shared"]:
+            shared_notes += 1
+        else:
+            private_notes += 1
+
+    return {
+        "private_notes": private_notes,
+        "shared_notes": shared_notes
+    }
+
+
+def _build_most_changed_emotion(emotions):
+    grouped = defaultdict(list)
+
+    for emotion in sorted(emotions, key=lambda item: item.created_at):
+        grouped[emotion.emotion].append(emotion)
+
+    strongest_change = None
+
+    for emotion, items in grouped.items():
+        if len(items) < 2:
+            continue
+
+        midpoint = max(1, len(items) // 2)
+        first_half = items[:midpoint]
+        second_half = items[midpoint:]
+
+        if not second_half:
+            continue
+
+        from_score = sum(item.score for item in first_half) / len(first_half)
+        to_score = sum(item.score for item in second_half) / len(second_half)
+        change = to_score - from_score
+        candidate = {
+            "emotion": emotion,
+            "from_score": round(from_score, 2),
+            "to_score": round(to_score, 2),
+            "change": round(change, 2),
+            "direction": "up" if change > 0 else "down"
+        }
+
+        if (
+            strongest_change is None
+            or abs(candidate["change"]) > abs(strongest_change["change"])
+        ):
+            strongest_change = candidate
+
+    return strongest_change or {
+        "emotion": None,
+        "from_score": 0,
+        "to_score": 0,
+        "change": 0,
+        "direction": "steady"
+    }
+
+
+def _normalize_emotion_label(value):
+    return unicodedata.normalize("NFKD", value.lower()).encode("ascii", "ignore").decode("ascii")
+
+
+def _top_song_for_note_ids(notes_by_id, note_ids):
+    matching_notes = [
+        notes_by_id[note_id]
+        for note_id in note_ids
+        if note_id in notes_by_id and notes_by_id[note_id].song
+    ]
+
+    return _top_recap_item(
+        matching_notes,
+        lambda note: (
+            f"{note.song.title.lower()}::{note.song.artist.lower()}"
+            if note.song.title and note.song.artist
+            else None
+        ),
+        lambda note: f"{note.song.title} - {note.song.artist}"
+    )
+
+
+def _build_emotion_song_map(notes, emotions):
+    notes_by_id = {note.id: note for note in notes}
+    targets = {
+        "happy": ["felicidad", "alegria", "motivacion"],
+        "sad": ["tristeza", "melancolia"],
+        "anxious": ["ansiedad", "estres", "nervios"]
+    }
+    note_ids_by_target = {target: set() for target in targets}
+
+    for emotion in emotions:
+        normalized = _normalize_emotion_label(emotion.emotion)
+        for target, labels in targets.items():
+            if normalized in labels:
+                note_ids_by_target[target].add(emotion.note_id)
+
+    return {
+        target: _top_song_for_note_ids(notes_by_id, note_ids)
+        for target, note_ids in note_ids_by_target.items()
+    }
+
+
+def _build_music_mood(emotion_summary, top_artist, top_song):
+    dominant = emotion_summary.get("dominant_emotion")
+
+    if not dominant:
+        return "Still finding your sound"
+
+    if top_artist["count"] > 0:
+        return f"{dominant} with {top_artist['label']}"
+
+    if top_song["count"] > 0:
+        return f"{dominant} through {top_song['label']}"
+
+    return dominant
+
+
+def _build_ai_recap_insights(user_id, recap_range, notes, emotion_summary, top_song, music_mood):
+    if not notes:
+        return {
+            "representative_phrase": "No representative phrase yet.",
+            "narrative_summary": "Write a few notes with music and NoteBeat will start finding your monthly sound."
+        }
+
+    latest_note_date = max(note.updated_at or note.created_at for note in notes)
+    cache_key = (str(user_id), recap_range, latest_note_date.isoformat(), len(notes))
+    cached = RECAP_AI_CACHE.get(cache_key)
+    if cached:
+        return cached
+
+    snippets = []
+    for note in notes[:12]:
+        text = (note.content or "").replace("\n", " ").strip()
+        if len(text) > 220:
+            text = f"{text[:220]}..."
+        song = ""
+        if note.song:
+            song = f" | Song: {note.song.title} - {note.song.artist}"
+        snippets.append(f"- {note.title}: {text}{song}")
+
+    prompt = f"""
+    You are NoteBeat, an emotionally aware music journal assistant.
+    Create a short recap from these notes.
+
+    Range: {recap_range}
+    Dominant emotion: {emotion_summary.get("dominant_emotion")}
+    Music mood: {music_mood}
+    Top song: {top_song.get("label")}
+
+    Notes:
+    {chr(10).join(snippets)}
+
+    Return ONLY valid JSON:
+    {{
+      "representative_phrase": "one short poetic sentence, max 14 words",
+      "narrative_summary": "one warm sentence that starts with 'This period sounded like'"
+    }}
+    """
+
+    fallback = {
+        "representative_phrase": "A quiet pattern is starting to become a song.",
+        "narrative_summary": f"This period sounded like {music_mood}."
+    }
+
+    try:
+        raw = run_ai_task(prompt)
+        parsed = json.loads(clean_json(raw))
+        result = {
+            "representative_phrase": parsed.get(
+                "representative_phrase",
+                fallback["representative_phrase"]
+            ),
+            "narrative_summary": parsed.get(
+                "narrative_summary",
+                fallback["narrative_summary"]
+            )
+        }
+    except Exception:
+        result = fallback
+
+    RECAP_AI_CACHE[cache_key] = result
+    return result
 
 
 @router.post("/emotions/{note_id}")
@@ -315,6 +556,9 @@ def get_recap(
 
     notes_with_song = [note for note in notes if note.song]
     emotion_summary = _build_emotion_summary(emotions)
+    activity_summary = _build_activity_summary(notes)
+    visibility_summary = _build_visibility_summary(notes)
+    most_changed_emotion = _build_most_changed_emotion(emotions)
 
     top_song = _top_recap_item(
         notes_with_song,
@@ -337,6 +581,16 @@ def get_recap(
         lambda note: note.song.artist.lower() if note.song.artist else None,
         lambda note: note.song.artist
     )
+    music_mood = _build_music_mood(emotion_summary, top_artist, top_song)
+    songs_by_emotion = _build_emotion_song_map(notes, emotions)
+    ai_insights = _build_ai_recap_insights(
+        user.id,
+        recap_range,
+        notes,
+        emotion_summary,
+        top_song,
+        music_mood
+    )
 
     return {
         "range": recap_range,
@@ -345,11 +599,19 @@ def get_recap(
         "summary": {
             "total_notes": len(notes),
             "notes_with_song": len(notes_with_song),
+            "private_notes": visibility_summary["private_notes"],
+            "shared_notes": visibility_summary["shared_notes"],
             "dominant_emotion": emotion_summary["dominant_emotion"],
-            "avg_intensity": emotion_summary["avg_intensity"]
+            "avg_intensity": emotion_summary["avg_intensity"],
+            "music_mood": music_mood,
+            "representative_phrase": ai_insights["representative_phrase"],
+            "narrative_summary": ai_insights["narrative_summary"]
         },
         "top_song": top_song,
         "top_album": top_album,
         "top_artist": top_artist,
+        "most_changed_emotion": most_changed_emotion,
+        "activity": activity_summary,
+        "songs_by_emotion": songs_by_emotion,
         "top_emotions": emotion_summary["top_emotions"]
     }

@@ -74,6 +74,17 @@ const recapRangeOptions: { id: RecapRange; label: string; days: number }[] = [
   { id: "year", label: "Year", days: 365 },
 ];
 
+const getChangedEmotionLabel = (recap: RecapDashboard) => {
+  const changed = recap.most_changed_emotion;
+
+  if (!changed.emotion) {
+    return "Not enough data yet";
+  }
+
+  const sign = changed.change > 0 ? "+" : "";
+  return `${changed.emotion} ${sign}${changed.change.toFixed(2)}`;
+};
+
 export default function DashboardHomePage() {
   const router = useRouter();
   const quickTitleRef = useRef<HTMLInputElement | null>(null);
@@ -755,12 +766,18 @@ export default function DashboardHomePage() {
             <p className="home-empty">Loading recap...</p>
           ) : recapError ? (
             <p className="home-error">{recapError}</p>
-          ) : !recap || recap.summary.notes_with_song === 0 ? (
+          ) : !recap || recap.summary.total_notes === 0 ? (
             <p className="home-empty">No data yet.</p>
           ) : (
             <>
               <p className="home-empty">
                 {recap.summary.total_notes} notes / {recap.summary.notes_with_song} songs
+              </p>
+              <p className="home-empty">
+                {recap.summary.narrative_summary}
+              </p>
+              <p className="home-empty">
+                Phrase: {recap.summary.representative_phrase}
               </p>
               <div className="home-recap-list">
                 {[
@@ -775,6 +792,67 @@ export default function DashboardHomePage() {
                         <img
                           src={entry.item.image_url}
                           alt={entry.alt}
+                          className="home-recap-img"
+                        />
+                      ) : (
+                        <span className="home-recap-art-placeholder">No art</span>
+                      )}
+                    </div>
+                    <div className="home-recap-text">
+                      <p className="home-recap-key">{entry.label}</p>
+                      <p className="home-recap-value">{entry.item.label}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="home-recap-list">
+                {[
+                  { label: "Music mood", value: recap.summary.music_mood },
+                  {
+                    label: "Dominant emotion",
+                    value: recap.summary.dominant_emotion ?? "No data yet",
+                  },
+                  {
+                    label: "Biggest emotion shift",
+                    value: getChangedEmotionLabel(recap),
+                  },
+                  {
+                    label: "Private / shared",
+                    value: `${recap.summary.private_notes} / ${recap.summary.shared_notes}`,
+                  },
+                  {
+                    label: "Top writing day",
+                    value: `${recap.activity.top_day.label} (${recap.activity.top_day.count})`,
+                  },
+                  {
+                    label: "Top writing hour",
+                    value: `${recap.activity.top_hour.label} (${recap.activity.top_hour.count})`,
+                  },
+                ].map((entry) => (
+                  <div key={entry.label} className="home-recap-item">
+                    <div className="home-recap-art">
+                      <span className="home-recap-art-placeholder">NB</span>
+                    </div>
+                    <div className="home-recap-text">
+                      <p className="home-recap-key">{entry.label}</p>
+                      <p className="home-recap-value">{entry.value}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="home-recap-list">
+                {[
+                  { label: "When happy", item: recap.songs_by_emotion.happy },
+                  { label: "When sad", item: recap.songs_by_emotion.sad },
+                  { label: "When anxious", item: recap.songs_by_emotion.anxious },
+                ].map((entry) => (
+                  <div key={entry.label} className="home-recap-item">
+                    <div className="home-recap-art">
+                      {entry.item.image_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={entry.item.image_url}
+                          alt={`${entry.label} song cover`}
                           className="home-recap-img"
                         />
                       ) : (
