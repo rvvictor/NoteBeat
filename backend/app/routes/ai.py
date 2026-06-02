@@ -1,5 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException
+from datetime import datetime, timedelta
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+from sqlalchemy.orm import joinedload
 from app.db.deps import get_db
 from app.models.note import Note
 from app.services.deps import get_current_user
@@ -14,6 +16,87 @@ from collections import defaultdict
 from uuid import UUID
 
 router = APIRouter(tags=["AI"])
+
+RECAP_RANGES = {
+    "week": 7,
+    "month": 30,
+    "year": 365
+}
+
+
+def _empty_recap_item():
+    return {
+        "label": "No data yet",
+        "count": 0,
+        "image_url": None
+    }
+
+
+def _top_recap_item(notes, key_builder, label_builder):
+    counts = {}
+
+    for note in notes:
+        if not note.song:
+            continue
+
+        key = key_builder(note)
+        if not key:
+            continue
+
+        entry = counts.get(key)
+        if entry:
+            entry["count"] += 1
+            if not entry.get("image_url") and note.song.image_url:
+                entry["image_url"] = note.song.image_url
+            continue
+
+        counts[key] = {
+            "label": label_builder(note),
+            "count": 1,
+            "image_url": note.song.image_url
+        }
+
+    if not counts:
+        return _empty_recap_item()
+
+    return max(counts.values(), key=lambda item: item["count"])
+
+
+def _build_emotion_summary(emotions):
+    if not emotions:
+        return {
+            "dominant_emotion": None,
+            "avg_intensity": 0,
+            "top_emotions": []
+        }
+
+    distribution = defaultdict(lambda: {"count": 0, "total_score": 0})
+
+    for emotion in emotions:
+        distribution[emotion.emotion]["count"] += 1
+        distribution[emotion.emotion]["total_score"] += emotion.score
+
+    top_emotions = []
+    for emotion, data in distribution.items():
+        top_emotions.append({
+            "emotion": emotion,
+            "count": data["count"],
+            "avg_score": round(data["total_score"] / data["count"], 2)
+        })
+
+    top_emotions = sorted(
+        top_emotions,
+        key=lambda item: (item["count"], item["avg_score"]),
+        reverse=True
+    )
+
+    avg_intensity = sum(emotion.score for emotion in emotions) / len(emotions)
+
+    return {
+        "dominant_emotion": top_emotions[0]["emotion"],
+        "avg_intensity": round(avg_intensity, 2),
+        "top_emotions": top_emotions[:3]
+    }
 
 
 @router.post("/emotions/{note_id}")
@@ -192,4 +275,81 @@ def emotions_dashboard(
         },
         "distribution": distribution,
         "timeline": timeline
+    }
+
+
+@router.get("/recap")
+def get_recap(
+    recap_range: str = Query("week", alias="range", pattern="^(week|month|year)$"),
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user)
+):
+    days = RECAP_RANGES[recap_range]
+    end_date = datetime.utcnow()
+    start_date = end_date - timedelta(days=days - 1)
+    start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    notes = (
+        db.query(Note)
+        .options(joinedload(Note.song))
+        .filter(
+            Note.user_id == user.id,
+            Note.created_at >= start_date,
+            Note.created_at <= end_date
+        )
+        .order_by(Note.created_at.desc())
+        .all()
+    )
+
+    note_ids = [note.id for note in notes]
+    emotions = []
+    if note_ids:
+        emotions = (
+            db.query(NoteEmotion)
+            .filter(
+                NoteEmotion.user_id == user.id,
+                NoteEmotion.note_id.in_(note_ids)
+            )
+            .all()
+        )
+
+    notes_with_song = [note for note in notes if note.song]
+    emotion_summary = _build_emotion_summary(emotions)
+
+    top_song = _top_recap_item(
+        notes_with_song,
+        lambda note: (
+            f"{note.song.title.lower()}::{note.song.artist.lower()}"
+            if note.song.title and note.song.artist
+            else None
+        ),
+        lambda note: f"{note.song.title} - {note.song.artist}"
+    )
+
+    top_album = _top_recap_item(
+        notes_with_song,
+        lambda note: note.song.album.lower() if note.song.album else None,
+        lambda note: note.song.album
+    )
+
+    top_artist = _top_recap_item(
+        notes_with_song,
+        lambda note: note.song.artist.lower() if note.song.artist else None,
+        lambda note: note.song.artist
+    )
+
+    return {
+        "range": recap_range,
+        "start_date": start_date.date().isoformat(),
+        "end_date": end_date.date().isoformat(),
+        "summary": {
+            "total_notes": len(notes),
+            "notes_with_song": len(notes_with_song),
+            "dominant_emotion": emotion_summary["dominant_emotion"],
+            "avg_intensity": emotion_summary["avg_intensity"]
+        },
+        "top_song": top_song,
+        "top_album": top_album,
+        "top_artist": top_artist,
+        "top_emotions": emotion_summary["top_emotions"]
     }

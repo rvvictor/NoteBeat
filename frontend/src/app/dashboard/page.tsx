@@ -11,10 +11,12 @@ import {
   getCurrentUser,
   getEmotionDashboard,
   getNotes,
+  getRecap,
   logout,
 } from "@/lib/api";
 import { NoteItem } from "@/lib/notes";
 import { EmotionDashboard } from "@/lib/emotions";
+import { RecapDashboard, RecapRange } from "@/lib/recap";
 import NoteComposer from "@/components/NoteComposer";
 
 const monthFormatter = new Intl.DateTimeFormat("en-US", { month: "long" });
@@ -61,14 +63,6 @@ const getInitials = (name: string) => {
   return letters.join("") || "NB";
 };
 
-type RecapRange = "week" | "month" | "year";
-
-type RecapItem = {
-  label: string;
-  count: number;
-  imageUrl?: string | null;
-};
-
 type ChatMessage = {
   role: "user" | "assistant";
   content: string;
@@ -79,71 +73,6 @@ const recapRangeOptions: { id: RecapRange; label: string; days: number }[] = [
   { id: "month", label: "Month", days: 30 },
   { id: "year", label: "Year", days: 365 },
 ];
-
-const emptyRecapItem: RecapItem = {
-  label: "No data yet",
-  count: 0,
-  imageUrl: null,
-};
-
-const normalizeDate = (date: Date) =>
-  new Date(date.getFullYear(), date.getMonth(), date.getDate());
-
-const getRecapStartDate = (days: number) => {
-  const start = normalizeDate(new Date());
-  start.setDate(start.getDate() - (days - 1));
-  return start;
-};
-
-const getTopRecapItem = (
-  items: NoteItem[],
-  getKey: (note: NoteItem) => string | null,
-  formatLabel: (key: string) => string
-): RecapItem => {
-  const counts = new Map<string, { count: number; imageUrl?: string | null }>();
-
-  items.forEach((note) => {
-    const key = getKey(note);
-    if (!key) {
-      return;
-    }
-
-    const imageUrl = note.song?.image_url ?? null;
-    const entry = counts.get(key);
-
-    if (entry) {
-      entry.count += 1;
-      if (!entry.imageUrl && imageUrl) {
-        entry.imageUrl = imageUrl;
-      }
-      return;
-    }
-
-    counts.set(key, { count: 1, imageUrl });
-  });
-
-  let topKey: string | null = null;
-  let topCount = 0;
-  let topImageUrl: string | null = null;
-
-  counts.forEach((value, key) => {
-    if (value.count > topCount) {
-      topKey = key;
-      topCount = value.count;
-      topImageUrl = value.imageUrl ?? null;
-    }
-  });
-
-  if (!topKey) {
-    return emptyRecapItem;
-  }
-
-  return {
-    label: formatLabel(topKey),
-    count: topCount,
-    imageUrl: topImageUrl,
-  };
-};
 
 export default function DashboardHomePage() {
   const router = useRouter();
@@ -169,6 +98,10 @@ export default function DashboardHomePage() {
   const [isFullEditorOpen, setIsFullEditorOpen] = useState(false);
   const [visibleCount, setVisibleCount] = useState(7);
   const [recapRange, setRecapRange] = useState<RecapRange>("week");
+  const [recap, setRecap] = useState<RecapDashboard | null>(null);
+  const [recapError, setRecapError] = useState<string | null>(null);
+  const [recapLoading, setRecapLoading] = useState(true);
+  const [recapRefreshKey, setRecapRefreshKey] = useState(0);
 
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatQuestion, setChatQuestion] = useState("");
@@ -219,6 +152,20 @@ export default function DashboardHomePage() {
       })
       .finally(() => setStatsLoading(false));
   }, [router]);
+
+  useEffect(() => {
+    getRecap(recapRange)
+      .then(setRecap)
+      .catch((err) => {
+        if (err instanceof ApiError && err.status === 401) {
+          router.push("/login");
+          return;
+        }
+        const message = err instanceof Error ? err.message : "Unknown error";
+        setRecapError(message);
+      })
+      .finally(() => setRecapLoading(false));
+  }, [router, recapRange, recapRefreshKey]);
 
   const sortedNotes = useMemo(() => {
     return [...notes].sort((a, b) => getNoteTime(b) - getNoteTime(a));
@@ -360,6 +307,9 @@ export default function DashboardHomePage() {
       setQuickTitle("");
       setQuickContent("");
       setQuickStatus("Saved to notes.");
+      setRecapLoading(true);
+      setRecapError(null);
+      setRecapRefreshKey((prev) => prev + 1);
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         router.push("/login");
@@ -376,86 +326,20 @@ export default function DashboardHomePage() {
     setNotes((prev) => [created, ...prev]);
     setIsFullEditorOpen(false);
     setQuickStatus("Saved to notes.");
+    setRecapLoading(true);
+    setRecapError(null);
+    setRecapRefreshKey((prev) => prev + 1);
   };
 
-  const oldestNoteDate = useMemo(() => {
-    let oldest: Date | null = null;
-    notes.forEach((note) => {
-      const date = new Date(note.created_at);
-      if (Number.isNaN(date.getTime())) {
-        return;
-      }
-      if (!oldest || date.getTime() < oldest.getTime()) {
-        oldest = date;
-      }
-    });
-    return oldest;
-  }, [notes]);
-
-  const recapSummary = useMemo(() => {
-    const rangeConfig = recapRangeOptions.find(
-      (option) => option.id === recapRange
-    );
-
-    if (!rangeConfig) {
-      return {
-        hasCoverage: false,
-        hasData: false,
-        topSong: emptyRecapItem,
-        topAlbum: emptyRecapItem,
-        topArtist: emptyRecapItem,
-      };
+  const handleRecapRangeChange = (range: RecapRange) => {
+    if (range === recapRange) {
+      return;
     }
 
-    const start = getRecapStartDate(rangeConfig.days);
-    const hasCoverage =
-      recapRange === "year"
-        ? Boolean(
-            oldestNoteDate &&
-              normalizeDate(oldestNoteDate).getTime() <= start.getTime()
-          )
-        : true;
-
-    const filtered = notes.filter((note) => {
-      const date = new Date(note.created_at);
-      return !Number.isNaN(date.getTime()) && date >= start;
-    });
-    const withSong = filtered.filter(
-      (note) => note.song?.title && note.song?.artist
-    );
-
-    const topSong = getTopRecapItem(
-      withSong,
-      (note) =>
-        note.song?.title && note.song?.artist
-          ? `${note.song.title}||${note.song.artist}`
-          : null,
-      (key) => {
-        const [title, artist] = key.split("||");
-        return `${title} · ${artist}`;
-      }
-    );
-
-    const topAlbum = getTopRecapItem(
-      withSong,
-      (note) => (note.song?.album ? note.song.album : null),
-      (key) => key
-    );
-
-    const topArtist = getTopRecapItem(
-      withSong,
-      (note) => (note.song?.artist ? note.song.artist : null),
-      (key) => key
-    );
-
-    return {
-      hasCoverage,
-      hasData: withSong.length > 0,
-      topSong,
-      topAlbum,
-      topArtist,
-    };
-  }, [notes, recapRange, oldestNoteDate]);
+    setRecapRange(range);
+    setRecapLoading(true);
+    setRecapError(null);
+  };
 
   useEffect(() => {
     if (!loadMoreRef.current) {
@@ -857,7 +741,7 @@ export default function DashboardHomePage() {
                   key={option.id}
                   type="button"
                   className={`home-recap-tab${recapRange === option.id ? " active" : ""}`}
-                  onClick={() => setRecapRange(option.id)}
+                  onClick={() => handleRecapRangeChange(option.id)}
                   role="tab"
                   aria-selected={recapRange === option.id}
                 >
@@ -867,43 +751,44 @@ export default function DashboardHomePage() {
             </div>
           </div>
 
-          {notesLoading ? (
+          {recapLoading ? (
             <p className="home-empty">Loading recap...</p>
-          ) : !recapSummary.hasCoverage ? (
-            <p className="home-empty">
-              {recapRange === "year"
-                ? "Not enough data for a full year yet."
-                : "Not enough data yet."}
-            </p>
-          ) : !recapSummary.hasData ? (
+          ) : recapError ? (
+            <p className="home-error">{recapError}</p>
+          ) : !recap || recap.summary.notes_with_song === 0 ? (
             <p className="home-empty">No data yet.</p>
           ) : (
-            <div className="home-recap-list">
-              {[
-                { label: "Song", item: recapSummary.topSong, alt: "Song cover" },
-                { label: "Album", item: recapSummary.topAlbum, alt: "Album art" },
-                { label: "Artist", item: recapSummary.topArtist, alt: "Artist photo" },
-              ].map((entry) => (
-                <div key={entry.label} className="home-recap-item">
-                  <div className="home-recap-art">
-                    {entry.item.imageUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={entry.item.imageUrl}
-                        alt={entry.alt}
-                        className="home-recap-img"
-                      />
-                    ) : (
-                      <span className="home-recap-art-placeholder">No art</span>
-                    )}
+            <>
+              <p className="home-empty">
+                {recap.summary.total_notes} notes / {recap.summary.notes_with_song} songs
+              </p>
+              <div className="home-recap-list">
+                {[
+                  { label: "Song", item: recap.top_song, alt: "Song cover" },
+                  { label: "Album", item: recap.top_album, alt: "Album art" },
+                  { label: "Artist", item: recap.top_artist, alt: "Artist photo" },
+                ].map((entry) => (
+                  <div key={entry.label} className="home-recap-item">
+                    <div className="home-recap-art">
+                      {entry.item.image_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={entry.item.image_url}
+                          alt={entry.alt}
+                          className="home-recap-img"
+                        />
+                      ) : (
+                        <span className="home-recap-art-placeholder">No art</span>
+                      )}
+                    </div>
+                    <div className="home-recap-text">
+                      <p className="home-recap-key">{entry.label}</p>
+                      <p className="home-recap-value">{entry.item.label}</p>
+                    </div>
                   </div>
-                  <div className="home-recap-text">
-                    <p className="home-recap-key">{entry.label}</p>
-                    <p className="home-recap-value">{entry.item.label}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            </>
           )}
         </div>
       </section>

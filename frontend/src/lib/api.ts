@@ -2,6 +2,7 @@ import { EmotionDashboard } from "@/lib/emotions";
 import { ChatRequest, ChatResponse } from "@/lib/ai";
 import { LoginRequest, RegisterRequest } from "@/lib/auth";
 import { NoteCreatePayload, NoteItem, SpotifyTrack } from "@/lib/notes";
+import { RecapDashboard, RecapRange } from "@/lib/recap";
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
@@ -17,6 +18,26 @@ export class ApiError extends Error {
 
 export async function getEmotionDashboard(): Promise<EmotionDashboard> {
   const res = await fetch(`${API_BASE}/ai/dashboard`, {
+    headers: {
+      "Content-Type": "application/json",
+    },
+    cache: "no-store",
+    credentials: "include",
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new ApiError(res.status, text);
+  }
+
+  return res.json();
+}
+
+export async function getRecap(
+  range: RecapRange
+): Promise<RecapDashboard> {
+  const params = new URLSearchParams({ range });
+  const res = await fetch(`${API_BASE}/ai/recap?${params.toString()}`, {
     headers: {
       "Content-Type": "application/json",
     },
