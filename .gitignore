@@ -58,3 +58,7 @@ coverage/
 .env.local
 ngrok.yml
 ngrok.yml.bak
+
+# Local Codex skills/agents
+.agents/
+skills-lock.json

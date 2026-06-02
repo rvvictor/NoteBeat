@@ -85,6 +85,21 @@ const getChangedEmotionLabel = (recap: RecapDashboard) => {
   return `${changed.emotion} ${sign}${changed.change.toFixed(2)}`;
 };
 
+const getChangedEmotionMeta = (recap: RecapDashboard) => {
+  const changed = recap.most_changed_emotion;
+
+  if (!changed.emotion) {
+    return "Write more notes to compare emotional movement.";
+  }
+
+  if (changed.direction === "steady") {
+    return "Your emotional signal stayed steady.";
+  }
+
+  const direction = changed.direction === "up" ? "increased" : "softened";
+  return `Moved from ${changed.from_score.toFixed(2)} to ${changed.to_score.toFixed(2)}. It ${direction}.`;
+};
+
 export default function DashboardHomePage() {
   const router = useRouter();
   const quickTitleRef = useRef<HTMLInputElement | null>(null);
@@ -740,7 +755,7 @@ export default function DashboardHomePage() {
           <div className="home-recap-header">
             <div>
               <p className="home-stat-label">Recap</p>
-              <p className="home-recap-title">Top music moments</p>
+              <p className="home-recap-title">Your NoteBeat pulse</p>
             </div>
             <div
               className="home-recap-switch"
@@ -769,104 +784,127 @@ export default function DashboardHomePage() {
           ) : !recap || recap.summary.total_notes === 0 ? (
             <p className="home-empty">No data yet.</p>
           ) : (
-            <>
-              <p className="home-empty">
-                {recap.summary.total_notes} notes / {recap.summary.notes_with_song} songs
-              </p>
-              <p className="home-empty">
-                {recap.summary.narrative_summary}
-              </p>
-              <p className="home-empty">
-                Phrase: {recap.summary.representative_phrase}
-              </p>
-              <div className="home-recap-list">
-                {[
-                  { label: "Song", item: recap.top_song, alt: "Song cover" },
-                  { label: "Album", item: recap.top_album, alt: "Album art" },
-                  { label: "Artist", item: recap.top_artist, alt: "Artist photo" },
-                ].map((entry) => (
-                  <div key={entry.label} className="home-recap-item">
-                    <div className="home-recap-art">
-                      {entry.item.image_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={entry.item.image_url}
-                          alt={entry.alt}
-                          className="home-recap-img"
-                        />
-                      ) : (
-                        <span className="home-recap-art-placeholder">No art</span>
-                      )}
-                    </div>
-                    <div className="home-recap-text">
-                      <p className="home-recap-key">{entry.label}</p>
-                      <p className="home-recap-value">{entry.item.label}</p>
-                    </div>
-                  </div>
-                ))}
+            <div className="home-recap-scroll no-scrollbar">
+              <section className="recap-hero-card">
+                <p className="recap-hero-kicker">Mood musical</p>
+                <h3 className="recap-hero-title">{recap.summary.music_mood}</h3>
+                <p className="recap-hero-copy">{recap.summary.narrative_summary}</p>
+                <p className="recap-hero-quote">{recap.summary.representative_phrase}</p>
+              </section>
+
+              <div className="recap-stat-strip">
+                <div>
+                  <p className="recap-stat-number">{recap.summary.total_notes}</p>
+                  <p className="recap-stat-label">Notes</p>
+                </div>
+                <div>
+                  <p className="recap-stat-number">{recap.summary.notes_with_song}</p>
+                  <p className="recap-stat-label">Songs</p>
+                </div>
+                <div>
+                  <p className="recap-stat-number">{recap.summary.private_notes}</p>
+                  <p className="recap-stat-label">Private</p>
+                </div>
+                <div>
+                  <p className="recap-stat-number">{recap.summary.shared_notes}</p>
+                  <p className="recap-stat-label">Shared</p>
+                </div>
               </div>
-              <div className="home-recap-list">
-                {[
-                  { label: "Music mood", value: recap.summary.music_mood },
-                  {
-                    label: "Dominant emotion",
-                    value: recap.summary.dominant_emotion ?? "No data yet",
-                  },
-                  {
-                    label: "Biggest emotion shift",
-                    value: getChangedEmotionLabel(recap),
-                  },
-                  {
-                    label: "Private / shared",
-                    value: `${recap.summary.private_notes} / ${recap.summary.shared_notes}`,
-                  },
-                  {
-                    label: "Top writing day",
-                    value: `${recap.activity.top_day.label} (${recap.activity.top_day.count})`,
-                  },
-                  {
-                    label: "Top writing hour",
-                    value: `${recap.activity.top_hour.label} (${recap.activity.top_hour.count})`,
-                  },
-                ].map((entry) => (
-                  <div key={entry.label} className="home-recap-item">
-                    <div className="home-recap-art">
-                      <span className="home-recap-art-placeholder">NB</span>
+
+              <section className="recap-section">
+                <div className="recap-section-header">
+                  <p className="home-recap-key">Top music moments</p>
+                  <span className="recap-section-pill">{recap.range}</span>
+                </div>
+                <div className="home-recap-list">
+                  {[
+                    { label: "Song", item: recap.top_song, alt: "Song cover" },
+                    { label: "Album", item: recap.top_album, alt: "Album art" },
+                    { label: "Artist", item: recap.top_artist, alt: "Artist photo" },
+                  ].map((entry) => (
+                    <div key={entry.label} className="home-recap-item recap-music-item">
+                      <div className="home-recap-art">
+                        {entry.item.image_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={entry.item.image_url}
+                            alt={entry.alt}
+                            className="home-recap-img"
+                          />
+                        ) : (
+                          <span className="home-recap-art-placeholder">No art</span>
+                        )}
+                      </div>
+                      <div className="home-recap-text">
+                        <p className="home-recap-key">{entry.label}</p>
+                        <p className="home-recap-value">{entry.item.label}</p>
+                      </div>
                     </div>
-                    <div className="home-recap-text">
-                      <p className="home-recap-key">{entry.label}</p>
-                      <p className="home-recap-value">{entry.value}</p>
-                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <section className="recap-section">
+                <div className="recap-section-header">
+                  <p className="home-recap-key">Emotion and rhythm</p>
+                </div>
+                <div className="recap-mini-grid">
+                  <div className="recap-mini-card">
+                    <p className="home-recap-key">Dominant emotion</p>
+                    <p className="home-recap-value">
+                      {recap.summary.dominant_emotion ?? "No data yet"}
+                    </p>
                   </div>
-                ))}
-              </div>
-              <div className="home-recap-list">
-                {[
-                  { label: "When happy", item: recap.songs_by_emotion.happy },
-                  { label: "When sad", item: recap.songs_by_emotion.sad },
-                  { label: "When anxious", item: recap.songs_by_emotion.anxious },
-                ].map((entry) => (
-                  <div key={entry.label} className="home-recap-item">
-                    <div className="home-recap-art">
-                      {entry.item.image_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={entry.item.image_url}
-                          alt={`${entry.label} song cover`}
-                          className="home-recap-img"
-                        />
-                      ) : (
-                        <span className="home-recap-art-placeholder">No art</span>
-                      )}
-                    </div>
-                    <div className="home-recap-text">
-                      <p className="home-recap-key">{entry.label}</p>
-                      <p className="home-recap-value">{entry.item.label}</p>
-                    </div>
+                  <div className="recap-mini-card">
+                    <p className="home-recap-key">Biggest shift</p>
+                    <p className="home-recap-value">{getChangedEmotionLabel(recap)}</p>
+                    <p className="recap-mini-copy">{getChangedEmotionMeta(recap)}</p>
                   </div>
-                ))}
-              </div>
-            </>
+                  <div className="recap-mini-card">
+                    <p className="home-recap-key">Top day</p>
+                    <p className="home-recap-value">{recap.activity.top_day.label}</p>
+                    <p className="recap-mini-copy">{recap.activity.top_day.count} notes</p>
+                  </div>
+                  <div className="recap-mini-card">
+                    <p className="home-recap-key">Top hour</p>
+                    <p className="home-recap-value">{recap.activity.top_hour.label}</p>
+                    <p className="recap-mini-copy">{recap.activity.top_hour.count} notes</p>
+                  </div>
+                </div>
+              </section>
+
+              <section className="recap-section">
+                <div className="recap-section-header">
+                  <p className="home-recap-key">Songs by feeling</p>
+                </div>
+                <div className="home-recap-list">
+                  {[
+                    { label: "When happy", item: recap.songs_by_emotion.happy },
+                    { label: "When sad", item: recap.songs_by_emotion.sad },
+                    { label: "When anxious", item: recap.songs_by_emotion.anxious },
+                  ].map((entry) => (
+                    <div key={entry.label} className="home-recap-item">
+                      <div className="home-recap-art">
+                        {entry.item.image_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={entry.item.image_url}
+                            alt={`${entry.label} song cover`}
+                            className="home-recap-img"
+                          />
+                        ) : (
+                          <span className="home-recap-art-placeholder">No art</span>
+                        )}
+                      </div>
+                      <div className="home-recap-text">
+                        <p className="home-recap-key">{entry.label}</p>
+                        <p className="home-recap-value">{entry.item.label}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            </div>
           )}
         </div>
       </section>
