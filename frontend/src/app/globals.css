@@ -1093,23 +1093,56 @@ a {
 }
 
 .home-hero-mood {
+  position: relative;
+  overflow: hidden;
   border-radius: 14px;
   padding: 0.65rem 0.7rem;
-  background: linear-gradient(135deg, #fff7ed, #dbeafe 58%, #dcfce7);
-  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: var(--mood-bg, linear-gradient(135deg, #eef2ff, #dbeafe 58%, #ecfeff));
+  border: 1px solid var(--mood-border, rgba(37, 99, 235, 0.22));
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.6rem;
-  box-shadow: 0 10px 18px rgba(15, 23, 42, 0.06);
+  box-shadow: var(--mood-shadow, 0 10px 18px rgba(15, 23, 42, 0.06));
   flex-shrink: 0;
+  transition: background 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease;
+}
+
+.home-hero-mood::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: var(--mood-accent, #2563eb);
+}
+
+.home-hero-mood::after {
+  content: "";
+  position: absolute;
+  right: -18px;
+  bottom: -32px;
+  width: 92px;
+  height: 92px;
+  border-radius: 999px;
+  background: var(--mood-accent, #2563eb);
+  opacity: 0.13;
+}
+
+.home-hero-mood > * {
+  position: relative;
+  z-index: 1;
+}
+
+.home-hero-mood .home-stat-label {
+  color: var(--mood-muted, #475569);
+  opacity: 0.82;
 }
 
 .home-hero-mood-value {
   font-size: 1rem;
   line-height: 1.1;
   font-weight: 700;
-  color: #1f2937;
+  color: var(--mood-ink, #1f2937);
 }
 
 .home-hero-mood-meta {
@@ -1121,7 +1154,7 @@ a {
   margin-top: 0.12rem;
   font-size: 0.85rem;
   font-weight: 700;
-  color: #1f2937;
+  color: var(--mood-ink, #1f2937);
 }
 
 .home-recap-panel {

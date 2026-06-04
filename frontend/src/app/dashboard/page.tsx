@@ -1,5 +1,6 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -68,11 +69,114 @@ type ChatMessage = {
   content: string;
 };
 
+type MoodTheme = {
+  background: string;
+  border: string;
+  accent: string;
+  ink: string;
+  muted: string;
+  shadow: string;
+};
+
 const recapRangeOptions: { id: RecapRange; label: string; days: number }[] = [
   { id: "week", label: "Week", days: 7 },
   { id: "month", label: "Month", days: 30 },
   { id: "year", label: "Year", days: 365 },
 ];
+
+const moodThemes: { keys: string[]; theme: MoodTheme }[] = [
+  {
+    keys: ["tristeza", "melancolia", "nostalgia", "sad"],
+    theme: {
+      background: "linear-gradient(135deg, #dbeafe 0%, #bfdbfe 48%, #eff6ff 100%)",
+      border: "rgba(37, 99, 235, 0.28)",
+      accent: "#2563eb",
+      ink: "#172554",
+      muted: "#1d4ed8",
+      shadow: "0 14px 30px rgba(37, 99, 235, 0.2)",
+    },
+  },
+  {
+    keys: ["felicidad", "alegria", "happy", "joy"],
+    theme: {
+      background: "linear-gradient(135deg, #fef3c7 0%, #fde68a 46%, #fff7ed 100%)",
+      border: "rgba(217, 119, 6, 0.24)",
+      accent: "#d97706",
+      ink: "#78350f",
+      muted: "#b45309",
+      shadow: "0 14px 30px rgba(217, 119, 6, 0.18)",
+    },
+  },
+  {
+    keys: ["ansiedad", "estres", "nervios", "anxious", "stress"],
+    theme: {
+      background: "linear-gradient(135deg, #ede9fe 0%, #ddd6fe 48%, #f5f3ff 100%)",
+      border: "rgba(124, 58, 237, 0.24)",
+      accent: "#7c3aed",
+      ink: "#3b0764",
+      muted: "#6d28d9",
+      shadow: "0 14px 30px rgba(124, 58, 237, 0.18)",
+    },
+  },
+  {
+    keys: ["calma", "tranquilidad", "paz", "relajacion", "calm"],
+    theme: {
+      background: "linear-gradient(135deg, #ccfbf1 0%, #a7f3d0 48%, #ecfeff 100%)",
+      border: "rgba(13, 148, 136, 0.25)",
+      accent: "#0d9488",
+      ink: "#134e4a",
+      muted: "#0f766e",
+      shadow: "0 14px 30px rgba(13, 148, 136, 0.18)",
+    },
+  },
+  {
+    keys: ["enojo", "ira", "frustracion", "rabia", "anger"],
+    theme: {
+      background: "linear-gradient(135deg, #fee2e2 0%, #fecaca 48%, #fff1f2 100%)",
+      border: "rgba(220, 38, 38, 0.24)",
+      accent: "#dc2626",
+      ink: "#7f1d1d",
+      muted: "#b91c1c",
+      shadow: "0 14px 30px rgba(220, 38, 38, 0.17)",
+    },
+  },
+  {
+    keys: ["motivacion", "esperanza", "energia", "inspiracion", "motivation"],
+    theme: {
+      background: "linear-gradient(135deg, #dcfce7 0%, #bbf7d0 48%, #f0fdf4 100%)",
+      border: "rgba(22, 163, 74, 0.24)",
+      accent: "#16a34a",
+      ink: "#14532d",
+      muted: "#15803d",
+      shadow: "0 14px 30px rgba(22, 163, 74, 0.17)",
+    },
+  },
+];
+
+const defaultMoodTheme: MoodTheme = {
+  background: "linear-gradient(135deg, #eef2ff 0%, #dbeafe 52%, #ecfeff 100%)",
+  border: "rgba(37, 99, 235, 0.22)",
+  accent: "#2563eb",
+  ink: "#172033",
+  muted: "#475569",
+  shadow: "0 14px 30px rgba(37, 99, 235, 0.16)",
+};
+
+const normalizeMood = (value?: string | null) =>
+  (value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+
+const getMoodTheme = (emotion?: string | null) => {
+  const normalized = normalizeMood(emotion);
+
+  return (
+    moodThemes.find(({ keys }) => keys.some((key) => normalized.includes(key)))
+      ?.theme ?? defaultMoodTheme
+  );
+};
 
 const getChangedEmotionLabel = (recap: RecapDashboard) => {
   const changed = recap.most_changed_emotion;
@@ -260,6 +364,17 @@ export default function DashboardHomePage() {
     const value = stats.summary.avg_intensity;
     return Number.isFinite(value) ? value.toFixed(1) : String(value);
   }, [stats]);
+
+  const dominantMood = stats?.summary.dominant_emotion ?? null;
+  const moodTheme = useMemo(() => getMoodTheme(dominantMood), [dominantMood]);
+  const moodPanelStyle = {
+    "--mood-bg": moodTheme.background,
+    "--mood-border": moodTheme.border,
+    "--mood-accent": moodTheme.accent,
+    "--mood-ink": moodTheme.ink,
+    "--mood-muted": moodTheme.muted,
+    "--mood-shadow": moodTheme.shadow,
+  } as CSSProperties;
 
   const canSendChat = useMemo(
     () => chatQuestion.trim().length > 0,
@@ -728,7 +843,7 @@ export default function DashboardHomePage() {
 
         {logoutError && <p className="home-error">{logoutError}</p>}
 
-        <div className="home-hero-mood">
+        <div className="home-hero-mood" style={moodPanelStyle}>
           <div>
             <p className="home-stat-label">Dominant mood</p>
             <p className="home-hero-mood-value capitalize">
