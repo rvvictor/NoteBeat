@@ -178,6 +178,19 @@ const getMoodTheme = (emotion?: string | null) => {
   );
 };
 
+const getQuickNoteTitle = (content: string) => {
+  const firstLine = content
+    .split("\n")
+    .map((line) => line.trim())
+    .find(Boolean);
+
+  if (!firstLine) {
+    return "Untitled note";
+  }
+
+  return firstLine.length > 72 ? `${firstLine.slice(0, 69)}...` : firstLine;
+};
+
 const getChangedEmotionLabel = (recap: RecapDashboard) => {
   const changed = recap.most_changed_emotion;
 
@@ -206,7 +219,6 @@ const getChangedEmotionMeta = (recap: RecapDashboard) => {
 
 export default function DashboardHomePage() {
   const router = useRouter();
-  const quickTitleRef = useRef<HTMLInputElement | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
   const [username, setUsername] = useState("");
@@ -220,7 +232,6 @@ export default function DashboardHomePage() {
   const [statsError, setStatsError] = useState<string | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
 
-  const [quickTitle, setQuickTitle] = useState("");
   const [quickContent, setQuickContent] = useState("");
   const [quickError, setQuickError] = useState<string | null>(null);
   const [quickStatus, setQuickStatus] = useState<string | null>(null);
@@ -430,8 +441,8 @@ export default function DashboardHomePage() {
       return;
     }
 
-    if (!quickTitle.trim() || !quickContent.trim()) {
-      setQuickError("Title and note are required.");
+    if (!quickContent.trim()) {
+      setQuickError("Write something before saving.");
       return;
     }
 
@@ -441,11 +452,10 @@ export default function DashboardHomePage() {
 
     try {
       const created = await createNote({
-        title: quickTitle.trim(),
+        title: getQuickNoteTitle(quickContent),
         content: quickContent.trim(),
       });
       setNotes((prev) => [created, ...prev]);
-      setQuickTitle("");
       setQuickContent("");
       setQuickStatus("Saved to notes.");
       setRecapLoading(true);
@@ -644,33 +654,12 @@ export default function DashboardHomePage() {
             <p className="home-panel-kicker">Quick note</p>
             <h2 className="home-panel-title">Capture a thought</h2>
             <p className="home-panel-subtitle">
-              Save a short idea without leaving the dashboard.
+              The first line becomes the title automatically.
             </p>
           </div>
 
           <form onSubmit={handleQuickSave} className="home-quick-form">
-            <div className="form-field">
-              <label className="form-label" htmlFor="quick-title">
-                Title
-              </label>
-              <input
-                ref={quickTitleRef}
-                id="quick-title"
-                value={quickTitle}
-                onChange={(event) => {
-                  setQuickTitle(event.target.value);
-                  setQuickStatus(null);
-                }}
-                className="form-input"
-                placeholder="e.g. Small wins today"
-                required
-              />
-            </div>
-
-            <div className="form-field">
-              <label className="form-label" htmlFor="quick-content">
-                Note
-              </label>
+            <div className="home-quick-editor">
               <textarea
                 id="quick-content"
                 value={quickContent}
@@ -678,9 +667,9 @@ export default function DashboardHomePage() {
                   setQuickContent(event.target.value);
                   setQuickStatus(null);
                 }}
-                className="form-textarea"
-                rows={6}
-                placeholder="Write a short note to keep this moment."
+                className="home-quick-textarea"
+                rows={9}
+                placeholder="How do you feel today?"
                 required
               />
             </div>
