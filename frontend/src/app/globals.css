@@ -790,43 +790,45 @@ a {
 }
 
 .home-quick-note {
-  margin-top: 1rem;
+  margin-top: 0.75rem;
 }
 
 .home-quick-form {
   margin-top: 0;
   display: grid;
-  gap: 0.9rem;
+  gap: 0.55rem;
 }
 
 .home-quick-editor {
-  border-radius: 22px;
+  overflow: hidden;
+  border-radius: 16px;
   border: 1px solid rgba(203, 213, 225, 0.9);
   background:
     linear-gradient(#ffffff, #ffffff) padding-box,
     linear-gradient(135deg, rgba(37, 99, 235, 0.24), rgba(20, 184, 166, 0.22)) border-box;
-  padding: 0.2rem;
-  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.06);
+  padding: 0.15rem;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.05);
 }
 
 .home-quick-textarea {
   width: 100%;
-  min-height: 260px;
+  min-height: 128px;
+  max-height: 180px;
   resize: vertical;
   border: none;
-  border-radius: 20px;
+  border-radius: 14px;
   background:
     linear-gradient(180deg, rgba(248, 250, 252, 0.92), rgba(255, 255, 255, 0.98));
-  padding: 1.15rem 1.2rem;
+  padding: 0.9rem 0.95rem 0.45rem;
   color: #111827;
-  font-size: 1.05rem;
-  line-height: 1.55;
+  font-size: 0.95rem;
+  line-height: 1.45;
   font-weight: 500;
 }
 
 .home-quick-textarea::placeholder {
   color: #94a3b8;
-  font-size: 0.98rem;
+  font-size: 0.86rem;
   font-weight: 500;
 }
 
@@ -838,22 +840,18 @@ a {
 .home-quick-actions {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.8rem;
+  justify-content: flex-end;
+  gap: 0.55rem;
 }
 
-.home-quick-link {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: #1d4ed8;
-  background: none;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-}
-
-.home-quick-link:hover {
-  color: #1e40af;
+.home-quick-count {
+  padding: 0 0.75rem 0.45rem;
+  color: #94a3b8;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1;
+  text-align: right;
 }
 
 .home-quick-button {
@@ -862,18 +860,19 @@ a {
   justify-content: center;
   gap: 0.4rem;
   border-radius: 999px;
-  padding: 0.7rem 1.4rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.82rem;
   font-weight: 600;
   border: 1px solid rgba(37, 99, 235, 0.35);
   background: #2563eb;
   color: #ffffff;
-  box-shadow: 0 12px 28px rgba(37, 99, 235, 0.22);
+  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.2);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .home-quick-button:hover {
   transform: translateY(-1px);
-  box-shadow: 0 16px 34px rgba(37, 99, 235, 0.3);
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.26);
 }
 
 .home-quick-button:disabled {

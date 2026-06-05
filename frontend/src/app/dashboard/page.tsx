@@ -191,18 +191,10 @@ const getQuickNoteTitle = (content: string) => {
   return firstLine.length > 72 ? `${firstLine.slice(0, 69)}...` : firstLine;
 };
 
-const MAX_QUICK_NOTE_WORDS = 220;
+const MAX_QUICK_NOTE_CHARS = 220;
 
-const limitQuickNoteWords = (value: string) => {
-  const words = [...value.matchAll(/\S+/g)];
-
-  if (words.length <= MAX_QUICK_NOTE_WORDS) {
-    return value;
-  }
-
-  const lastAllowedWord = words[MAX_QUICK_NOTE_WORDS - 1];
-  return value.slice(0, lastAllowedWord.index + lastAllowedWord[0].length);
-};
+const limitQuickNoteText = (value: string) =>
+  value.slice(0, MAX_QUICK_NOTE_CHARS);
 
 const getChangedEmotionLabel = (recap: RecapDashboard) => {
   const changed = recap.most_changed_emotion;
@@ -416,7 +408,7 @@ export default function DashboardHomePage() {
   const handleQuickContentChange = (
     event: React.ChangeEvent<HTMLTextAreaElement>
   ) => {
-    setQuickContent(limitQuickNoteWords(event.target.value));
+    setQuickContent(limitQuickNoteText(event.target.value));
     setQuickStatus(null);
     setQuickError(null);
   };
@@ -678,11 +670,15 @@ export default function DashboardHomePage() {
                 value={quickContent}
                 onChange={handleQuickContentChange}
                 className="home-quick-textarea"
-                rows={9}
+                rows={5}
                 placeholder="How do you feel today?"
                 aria-label="Quick note"
+                maxLength={MAX_QUICK_NOTE_CHARS}
                 required
               />
+              <div className="home-quick-count">
+                {quickContent.length}/{MAX_QUICK_NOTE_CHARS}
+              </div>
             </div>
 
             {quickError && <p className="home-error">{quickError}</p>}
@@ -690,18 +686,11 @@ export default function DashboardHomePage() {
 
             <div className="home-quick-actions">
               <button
-                type="button"
-                className="home-quick-link"
-                onClick={() => setIsFullEditorOpen(true)}
-              >
-                Open full editor
-              </button>
-              <button
                 type="submit"
                 className="home-quick-button"
                 disabled={isSaving}
               >
-                {isSaving ? "Saving..." : "Post quick note"}
+                {isSaving ? "Saving..." : "Post"}
               </button>
             </div>
           </form>
