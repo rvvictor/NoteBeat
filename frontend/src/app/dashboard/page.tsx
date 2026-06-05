@@ -191,6 +191,19 @@ const getQuickNoteTitle = (content: string) => {
   return firstLine.length > 72 ? `${firstLine.slice(0, 69)}...` : firstLine;
 };
 
+const MAX_QUICK_NOTE_WORDS = 220;
+
+const limitQuickNoteWords = (value: string) => {
+  const words = [...value.matchAll(/\S+/g)];
+
+  if (words.length <= MAX_QUICK_NOTE_WORDS) {
+    return value;
+  }
+
+  const lastAllowedWord = words[MAX_QUICK_NOTE_WORDS - 1];
+  return value.slice(0, lastAllowedWord.index + lastAllowedWord[0].length);
+};
+
 const getChangedEmotionLabel = (recap: RecapDashboard) => {
   const changed = recap.most_changed_emotion;
 
@@ -398,6 +411,14 @@ export default function DashboardHomePage() {
 
   const handleOpenChat = () => {
     setIsChatOpen(true);
+  };
+
+  const handleQuickContentChange = (
+    event: React.ChangeEvent<HTMLTextAreaElement>
+  ) => {
+    setQuickContent(limitQuickNoteWords(event.target.value));
+    setQuickStatus(null);
+    setQuickError(null);
   };
 
   const handleSendChat = async () => {
@@ -650,26 +671,16 @@ export default function DashboardHomePage() {
         </div>
 
         <div className="home-quick-note">
-          <div className="home-panel-heading">
-            <p className="home-panel-kicker">Quick note</p>
-            <h2 className="home-panel-title">Capture a thought</h2>
-            <p className="home-panel-subtitle">
-              The first line becomes the title automatically.
-            </p>
-          </div>
-
           <form onSubmit={handleQuickSave} className="home-quick-form">
             <div className="home-quick-editor">
               <textarea
                 id="quick-content"
                 value={quickContent}
-                onChange={(event) => {
-                  setQuickContent(event.target.value);
-                  setQuickStatus(null);
-                }}
+                onChange={handleQuickContentChange}
                 className="home-quick-textarea"
                 rows={9}
                 placeholder="How do you feel today?"
+                aria-label="Quick note"
                 required
               />
             </div>

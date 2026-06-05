@@ -789,8 +789,12 @@ a {
   font-size: 0.9rem;
 }
 
+.home-quick-note {
+  margin-top: 1rem;
+}
+
 .home-quick-form {
-  margin-top: 1.2rem;
+  margin-top: 0;
   display: grid;
   gap: 0.9rem;
 }
@@ -822,8 +826,8 @@ a {
 
 .home-quick-textarea::placeholder {
   color: #94a3b8;
-  font-size: 1.25rem;
-  font-weight: 700;
+  font-size: 0.98rem;
+  font-weight: 500;
 }
 
 .home-quick-textarea:focus {
