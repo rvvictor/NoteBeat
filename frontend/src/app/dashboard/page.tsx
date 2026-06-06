@@ -786,13 +786,13 @@ export default function DashboardHomePage() {
             className="home-modal-backdrop"
             onClick={() => setIsFullEditorOpen(false)}
           />
-          <div className="home-modal-card">
+          <div className="home-modal-card home-note-modal-card">
             <div className="home-editor-header">
               <div>
-                <p className="home-panel-kicker">Full note</p>
-                <h2 className="home-panel-title">Compose with details</h2>
+                <p className="home-panel-kicker">New note</p>
+                <h2 className="home-panel-title">Catch the moment</h2>
                 <p className="home-panel-subtitle">
-                  Add a song, attach context, and save the moment.
+                  Write first. Add the song if it belongs here.
                 </p>
               </div>
               <button
@@ -805,7 +805,7 @@ export default function DashboardHomePage() {
             </div>
             <NoteComposer
               onCreated={handleFullNoteCreated}
-              submitLabel="Post note"
+              submitLabel="Save note"
             />
           </div>
         </div>

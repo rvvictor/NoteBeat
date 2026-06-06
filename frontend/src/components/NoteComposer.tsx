@@ -15,6 +15,27 @@ import { NoteItem, SpotifyTrack } from "@/lib/notes";
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
+const getNoteTitle = (title: string, content: string) => {
+  const explicitTitle = title.trim();
+
+  if (explicitTitle) {
+    return explicitTitle.length > 90
+      ? `${explicitTitle.slice(0, 87)}...`
+      : explicitTitle;
+  }
+
+  const firstLine = content
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find(Boolean);
+
+  if (!firstLine) {
+    return "Untitled note";
+  }
+
+  return firstLine.length > 72 ? `${firstLine.slice(0, 69)}...` : firstLine;
+};
+
 type NoteComposerProps = {
   onCreated?: (note: NoteItem) => void;
   submitLabel?: string;
@@ -53,35 +74,28 @@ export default function NoteComposer({
 
   useEffect(() => {
     getSpotifyStatus()
-      .then((status) => setIsSpotifyConnected(status.connected))
+      .then((status) => {
+        setIsSpotifyConnected(status.connected);
+        if (!status.connected) {
+          setRecommendationMessage("Connect Spotify to see recommendations.");
+        }
+      })
       .catch((err) => {
         if (err instanceof ApiError && err.status === 401) {
           router.push("/login");
           return;
         }
         setIsSpotifyConnected(false);
+        setRecommendationMessage("Connect Spotify to see recommendations.");
       });
   }, [router]);
 
   useEffect(() => {
     const query = spotifyQuery.trim();
 
-    if (!query) {
-      setSpotifyResults([]);
-      setSpotifyMessage(null);
-      setIsSearching(false);
-      return;
-    }
-
     if (query.length < 2) {
-      setSpotifyResults([]);
-      setSpotifyMessage("Type at least 2 characters to search.");
-      setIsSearching(false);
       return;
     }
-
-    setIsSearching(true);
-    setSpotifyMessage(null);
 
     const timeoutId = setTimeout(() => {
       searchSpotify(query, 6)
@@ -110,26 +124,9 @@ export default function NoteComposer({
   useEffect(() => {
     const noteText = content.trim();
 
-    if (isSpotifyConnected === false) {
-      setRecommendations([]);
-      setRecommendationMessage("Connect Spotify to see recommendations.");
-      setIsRecommending(false);
+    if (isSpotifyConnected !== true || noteText.length < 20) {
       return;
     }
-
-    if (isSpotifyConnected !== true) {
-      return;
-    }
-
-    if (noteText.length < 20) {
-      setRecommendations([]);
-      setRecommendationMessage("Write a bit more to get recommendations.");
-      setIsRecommending(false);
-      return;
-    }
-
-    setIsRecommending(true);
-    setRecommendationMessage(null);
 
     const timeoutId = setTimeout(() => {
       getSpotifyRecommendations(noteText, 6)
@@ -173,17 +170,75 @@ export default function NoteComposer({
     ? Math.min(previewTime / previewDuration, 1)
     : 0;
 
+  const handleContentChange = (
+    event: React.ChangeEvent<HTMLTextAreaElement>
+  ) => {
+    const value = event.target.value;
+    const noteText = value.trim();
+
+    setContent(value);
+    setError(null);
+
+    if (isSpotifyConnected === false) {
+      setRecommendations([]);
+      setRecommendationMessage("Connect Spotify to see recommendations.");
+      setIsRecommending(false);
+      return;
+    }
+
+    if (isSpotifyConnected !== true) {
+      return;
+    }
+
+    if (noteText.length < 20) {
+      setRecommendations([]);
+      setRecommendationMessage("Write a bit more to get recommendations.");
+      setIsRecommending(false);
+      return;
+    }
+
+    setIsRecommending(true);
+    setRecommendationMessage(null);
+  };
+
+  const handleSpotifyQueryChange = (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const value = event.target.value;
+    const query = value.trim();
+
+    setSpotifyQuery(value);
+
+    if (!query) {
+      setSpotifyResults([]);
+      setSpotifyMessage(null);
+      setIsSearching(false);
+      return;
+    }
+
+    if (query.length < 2) {
+      setSpotifyResults([]);
+      setSpotifyMessage("Type at least 2 characters to search.");
+      setIsSearching(false);
+      return;
+    }
+
+    setIsSearching(true);
+    setSpotifyMessage(null);
+  };
+
   const handleSelectTrack = (track: SpotifyTrack) => {
     setSongTitle(track.title);
     setSongArtist(track.artist);
     setSongAlbum(track.album ?? "");
     setSongSpotifyId(track.id ?? "");
-    setSpotifyQuery(`${track.title} - ${track.artist}`);
+    setSpotifyQuery("");
     setSpotifyResults([]);
     setSpotifyMessage("Selected from Spotify.");
     setSelectedTrack(track);
     setPreviewDuration(null);
     setPreviewTime(0);
+    setIsSearching(false);
   };
 
   const handleClearSelected = () => {
@@ -218,8 +273,8 @@ export default function NoteComposer({
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!title.trim() || !content.trim()) {
-      setError("Title and content are required.");
+    if (!content.trim()) {
+      setError("Write something before saving.");
       return;
     }
 
@@ -239,7 +294,7 @@ export default function NoteComposer({
 
     try {
       const payload = {
-        title: title.trim(),
+        title: getNoteTitle(title, content),
         content: content.trim(),
         song: hasSongData
           ? {
@@ -279,77 +334,74 @@ export default function NoteComposer({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="form-stack">
-      <div className="form-field">
-        <label className="form-label" htmlFor="note-title">
-          Title
-        </label>
+    <form onSubmit={handleSubmit} className="note-composer">
+      <section className="composer-paper" aria-label="Write a note">
         <input
           id="note-title"
           value={title}
           onChange={(event) => setTitle(event.target.value)}
-          className="form-input"
-          placeholder="A short title"
-          required
+          className="composer-title-input"
+          placeholder="Untitled"
+          aria-label="Note title, optional"
         />
-      </div>
-
-      <div className="form-field">
-        <label className="form-label" htmlFor="note-content">
-          Content
-        </label>
         <textarea
           id="note-content"
           value={content}
-          onChange={(event) => setContent(event.target.value)}
-          rows={6}
-          className="form-textarea"
-          placeholder="What are you feeling today?"
+          onChange={handleContentChange}
+          rows={10}
+          className="composer-body-textarea"
+          placeholder="How do you feel today?"
+          aria-label="Note content"
           required
         />
-      </div>
+      </section>
 
-      <div className="panel">
-        <div className="panel-header">
-          <p className="panel-title">Spotify recommendations</p>
-          {isSpotifyConnected === false && (
-            <button
-              type="button"
-              onClick={handleConnectSpotify}
-              className="text-link"
-            >
-              Connect Spotify
-            </button>
-          )}
-          {isSpotifyConnected === true && (
-            <button
-              type="button"
-              onClick={handleDisconnectSpotify}
-              className="text-link"
-            >
-              Disconnect
-            </button>
-          )}
+      <section className="composer-sound-panel" aria-label="Song connection">
+        <div className="composer-sound-header">
+          <div>
+            <p className="composer-sound-kicker">Soundtrack</p>
+            <p className="composer-sound-copy">Optional</p>
+          </div>
+          <div className="composer-sound-actions">
+            {isSpotifyConnected === false && (
+              <button
+                type="button"
+                onClick={handleConnectSpotify}
+                className="composer-link-button"
+              >
+                Connect Spotify
+              </button>
+            )}
+            {isSpotifyConnected === true && (
+              <button
+                type="button"
+                onClick={handleDisconnectSpotify}
+                className="composer-link-button"
+              >
+                Disconnect
+              </button>
+            )}
+          </div>
         </div>
 
         {recommendationMessage && (
-          <p className="form-helper mt-2">{recommendationMessage}</p>
+          <p className="composer-helper">{recommendationMessage}</p>
         )}
 
         {isRecommending && (
-          <p className="form-helper mt-2">Finding recommendations...</p>
+          <p className="composer-helper">Finding a song for this note...</p>
         )}
 
         {recommendations.length > 0 && (
-          <div className="list-stack mt-3">
+          <div className="composer-track-list">
             {recommendations.map((track, index) => (
               <button
                 type="button"
                 key={`rec-${track.id ?? "unknown"}-${index}`}
                 onClick={() => handleSelectTrack(track)}
-                className="list-item"
+                className="composer-track-option"
               >
-                <div className="list-art">
+                <div className="composer-track-art">
                   {track.image_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -362,25 +414,20 @@ export default function NoteComposer({
                   )}
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-gray-900">
-                    {track.title}
-                  </p>
-                  <p className="text-xs text-gray-500">
+                  <p className="composer-track-title">{track.title}</p>
+                  <p className="composer-track-meta">
                     {track.artist}
-                    {track.album ? ` · ${track.album}` : ""}
+                    {track.album ? ` - ${track.album}` : ""}
                   </p>
                 </div>
               </button>
             ))}
           </div>
         )}
-      </div>
 
-      <div className="form-field">
-        <p className="form-label">Song (optional)</p>
         {selectedTrack && (
-          <div className="track-selected mt-3">
-            <div className="list-art">
+          <div className="composer-selected-track">
+            <div className="composer-track-art">
               {selectedTrack.image_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -392,16 +439,14 @@ export default function NoteComposer({
                 "No art"
               )}
             </div>
-            <div className="track-info">
-              <p className="text-sm font-semibold text-gray-900">
-                {selectedTrack.title}
-              </p>
-              <p className="text-xs text-gray-600">
+            <div className="composer-selected-info">
+              <p className="composer-track-title">{selectedTrack.title}</p>
+              <p className="composer-track-meta">
                 {selectedTrack.artist}
-                {selectedTrack.album ? ` · ${selectedTrack.album}` : ""}
+                {selectedTrack.album ? ` - ${selectedTrack.album}` : ""}
               </p>
               {selectedTrack.preview_url ? (
-                <div className="mt-2">
+                <div className="composer-preview">
                   <audio
                     ref={audioRef}
                     controls
@@ -415,31 +460,29 @@ export default function NoteComposer({
                       setPreviewTime(event.currentTarget.currentTime);
                     }}
                   />
-                  <div className="mt-2">
-                    <div className="flex items-end gap-1 h-10">
-                      {waveformBars.map((height, index) => {
-                        const percent = waveformBars.length
-                          ? index / waveformBars.length
-                          : 0;
-                        const isActive = percent <= previewProgress;
-                        return (
-                          <span
-                            key={`bar-${index}`}
-                            className={`wave-bar${isActive ? " active" : ""}`}
-                            style={{ height: `${height * 4}px` }}
-                          />
-                        );
-                      })}
-                    </div>
-                    <p className="form-helper mt-2">
-                      {previewDuration
-                        ? `${Math.round(previewDuration)}s preview`
-                        : "Loading preview..."}
-                    </p>
+                  <div className="composer-wave">
+                    {waveformBars.map((height, index) => {
+                      const percent = waveformBars.length
+                        ? index / waveformBars.length
+                        : 0;
+                      const isActive = percent <= previewProgress;
+                      return (
+                        <span
+                          key={`bar-${index}`}
+                          className={`wave-bar${isActive ? " active" : ""}`}
+                          style={{ height: `${height * 4}px` }}
+                        />
+                      );
+                    })}
                   </div>
+                  <p className="composer-helper">
+                    {previewDuration
+                      ? `${Math.round(previewDuration)}s preview`
+                      : "Loading preview..."}
+                  </p>
                 </div>
               ) : (
-                <p className="form-helper mt-2">
+                <p className="composer-helper">
                   Preview not available for this track.
                 </p>
               )}
@@ -447,39 +490,36 @@ export default function NoteComposer({
             <button
               type="button"
               onClick={handleClearSelected}
-              className="text-link"
+              className="composer-clear-button"
             >
-              Clear
+              Remove
             </button>
           </div>
         )}
 
-        <div className="form-field mt-4">
-          <label className="form-label" htmlFor="spotify-search">
-            Search Spotify
-          </label>
+        <div className="composer-search-row">
           <input
             id="spotify-search"
             value={spotifyQuery}
-            onChange={(event) => setSpotifyQuery(event.target.value)}
-            className="form-input"
-            placeholder="Song, artist, album"
+            onChange={handleSpotifyQueryChange}
+            className="composer-search-input"
+            placeholder="Search Spotify or type a song you remember"
+            aria-label="Search Spotify"
           />
-          {spotifyMessage && <p className="form-helper">{spotifyMessage}</p>}
         </div>
-
-        {isSearching && <p className="form-helper mt-2">Searching...</p>}
+        {spotifyMessage && <p className="composer-helper">{spotifyMessage}</p>}
+        {isSearching && <p className="composer-helper">Searching...</p>}
 
         {spotifyResults.length > 0 && (
-          <div className="list-stack mt-3">
+          <div className="composer-track-list">
             {spotifyResults.map((track) => (
               <button
                 type="button"
                 key={track.id}
                 onClick={() => handleSelectTrack(track)}
-                className="list-item"
+                className="composer-track-option"
               >
-                <div className="list-art">
+                <div className="composer-track-art">
                   {track.image_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -492,12 +532,10 @@ export default function NoteComposer({
                   )}
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-gray-900">
-                    {track.title}
-                  </p>
-                  <p className="text-xs text-gray-500">
+                  <p className="composer-track-title">{track.title}</p>
+                  <p className="composer-track-meta">
                     {track.artist}
-                    {track.album ? ` · ${track.album}` : ""}
+                    {track.album ? ` - ${track.album}` : ""}
                   </p>
                 </div>
               </button>
@@ -505,61 +543,44 @@ export default function NoteComposer({
           </div>
         )}
 
-        <div className="form-field mt-4">
-          <label className="form-label" htmlFor="song-title">
-            Song title
-          </label>
+        <div className="composer-manual-grid">
           <input
             id="song-title"
             value={songTitle}
             onChange={(event) => setSongTitle(event.target.value)}
-            className="form-input"
+            className="composer-chip-input"
             placeholder="Song title"
+            aria-label="Song title"
           />
-        </div>
-        <div className="form-field">
-          <label className="form-label" htmlFor="song-artist">
-            Artist
-          </label>
           <input
             id="song-artist"
             value={songArtist}
             onChange={(event) => setSongArtist(event.target.value)}
-            className="form-input"
+            className="composer-chip-input"
             placeholder="Artist"
+            aria-label="Artist"
           />
-        </div>
-        <div className="form-field">
-          <label className="form-label" htmlFor="song-album">
-            Album
-          </label>
           <input
             id="song-album"
             value={songAlbum}
             onChange={(event) => setSongAlbum(event.target.value)}
-            className="form-input"
+            className="composer-chip-input"
             placeholder="Album"
+            aria-label="Album"
           />
         </div>
-        <div className="form-field">
-          <label className="form-label" htmlFor="song-spotify">
-            Spotify ID
-          </label>
-          <input
-            id="song-spotify"
-            value={songSpotifyId}
-            onChange={(event) => setSongSpotifyId(event.target.value)}
-            className="form-input"
-            placeholder="Spotify ID"
-          />
-        </div>
+      </section>
+
+      <div className="composer-footer">
+        {error && <p className="form-error composer-error">{error}</p>}
+        <button
+          type="submit"
+          disabled={isSaving}
+          className="composer-submit"
+        >
+          {isSaving ? "Saving..." : submitLabel}
+        </button>
       </div>
-
-      {error && <p className="form-error">{error}</p>}
-
-      <button type="submit" disabled={isSaving} className="btn-primary">
-        {isSaving ? "Saving..." : submitLabel}
-      </button>
     </form>
   );
 }

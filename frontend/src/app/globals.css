@@ -941,6 +941,26 @@ a {
   box-shadow: 0 24px 60px rgba(15, 23, 42, 0.3);
 }
 
+.home-note-modal-card {
+  width: min(760px, 100%);
+  padding: 1.25rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.98));
+}
+
+.home-note-modal-card .home-editor-header {
+  margin-bottom: 0.75rem;
+}
+
+.home-note-modal-card .home-panel-title {
+  font-size: 1.25rem;
+}
+
+.home-note-modal-card .home-panel-subtitle {
+  margin-top: 0.25rem;
+  font-size: 0.82rem;
+}
+
 .home-stats-header {
   display: flex;
   align-items: center;
@@ -1858,6 +1878,266 @@ a {
   color: #dc2626;
 }
 
+.note-composer {
+  display: grid;
+  gap: 0.85rem;
+  margin-top: 0.55rem;
+}
+
+.composer-paper {
+  border-radius: 20px;
+  border: 1px solid rgba(203, 213, 225, 0.95);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.78));
+  padding: 1rem 1.05rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 14px 34px rgba(15, 23, 42, 0.06);
+}
+
+.composer-title-input,
+.composer-body-textarea {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: #111827;
+}
+
+.composer-title-input {
+  padding: 0.1rem 0.1rem 0.45rem;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+  font-family: var(--font-display), "Times New Roman", serif;
+  font-size: 1.3rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.composer-title-input::placeholder {
+  color: #94a3b8;
+}
+
+.composer-body-textarea {
+  min-height: 250px;
+  resize: vertical;
+  padding: 0.9rem 0.1rem 0.1rem;
+  font-size: 1rem;
+  line-height: 1.58;
+}
+
+.composer-body-textarea::placeholder {
+  color: #94a3b8;
+  font-size: 0.92rem;
+}
+
+.composer-title-input:focus,
+.composer-body-textarea:focus,
+.composer-search-input:focus,
+.composer-chip-input:focus {
+  outline: none;
+}
+
+.composer-title-input:focus {
+  border-bottom-color: rgba(37, 99, 235, 0.35);
+}
+
+.composer-sound-panel {
+  display: grid;
+  gap: 0.65rem;
+  border-radius: 18px;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  background: rgba(248, 250, 252, 0.82);
+  padding: 0.85rem;
+}
+
+.composer-sound-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.composer-sound-kicker {
+  color: #111827;
+  font-size: 0.86rem;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.composer-sound-copy,
+.composer-helper,
+.composer-track-meta {
+  color: #64748b;
+  font-size: 0.76rem;
+  line-height: 1.4;
+}
+
+.composer-sound-actions {
+  flex-shrink: 0;
+}
+
+.composer-link-button,
+.composer-clear-button {
+  border: none;
+  background: transparent;
+  color: #2563eb;
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.composer-link-button:hover,
+.composer-clear-button:hover {
+  color: #1d4ed8;
+}
+
+.composer-track-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 0.55rem;
+}
+
+.composer-track-option,
+.composer-selected-track {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  border-radius: 14px;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  background: #ffffff;
+  padding: 0.55rem;
+  text-align: left;
+}
+
+.composer-track-option {
+  cursor: pointer;
+  transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.composer-track-option:hover {
+  border-color: rgba(37, 99, 235, 0.28);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+  transform: translateY(-1px);
+}
+
+.composer-track-art {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  overflow: hidden;
+  border-radius: 11px;
+  background: rgba(37, 99, 235, 0.09);
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.62rem;
+  font-weight: 700;
+}
+
+.composer-track-title {
+  color: #111827;
+  font-size: 0.86rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.composer-selected-track {
+  align-items: flex-start;
+  background: linear-gradient(135deg, rgba(239, 246, 255, 0.96), rgba(240, 253, 250, 0.9));
+  border-color: rgba(37, 99, 235, 0.22);
+}
+
+.composer-selected-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.composer-preview {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.55rem;
+}
+
+.composer-wave {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.25rem;
+  height: 38px;
+}
+
+.composer-search-row {
+  display: grid;
+}
+
+.composer-search-input,
+.composer-chip-input {
+  width: 100%;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  background: #ffffff;
+  color: #111827;
+  font-size: 0.86rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.composer-search-input {
+  border-radius: 999px;
+  padding: 0.7rem 0.9rem;
+}
+
+.composer-chip-input {
+  border-radius: 12px;
+  padding: 0.65rem 0.75rem;
+}
+
+.composer-search-input:focus,
+.composer-chip-input:focus {
+  border-color: rgba(37, 99, 235, 0.34);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.08);
+}
+
+.composer-manual-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.composer-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.composer-error {
+  flex: 1;
+}
+
+.composer-submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 112px;
+  border-radius: 999px;
+  border: 1px solid rgba(37, 99, 235, 0.34);
+  background: #2563eb;
+  color: #ffffff;
+  padding: 0.62rem 1.15rem;
+  font-size: 0.86rem;
+  font-weight: 700;
+  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.22);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.composer-submit:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 30px rgba(37, 99, 235, 0.28);
+}
+
+.composer-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
 .list-stack {
   display: grid;
   gap: 0.75rem;
@@ -1979,6 +2259,37 @@ a {
 @media (max-width: 640px) {
   .nb-container {
     width: min(1200px, 100% - 2rem);
+  }
+
+  .home-modal {
+    padding: 0.75rem;
+  }
+
+  .home-note-modal-card {
+    padding: 1rem;
+  }
+
+  .composer-paper {
+    padding: 0.85rem;
+  }
+
+  .composer-body-textarea {
+    min-height: 210px;
+  }
+
+  .composer-sound-header,
+  .composer-footer,
+  .composer-selected-track {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .composer-manual-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .composer-submit {
+    width: 100%;
   }
 }
 
