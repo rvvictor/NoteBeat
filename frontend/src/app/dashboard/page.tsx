@@ -192,9 +192,37 @@ const getQuickNoteTitle = (content: string) => {
 };
 
 const MAX_QUICK_NOTE_CHARS = 220;
+const NOTE_EMPTY_CONTENT_LABEL = "No additional text";
 
 const limitQuickNoteText = (value: string) =>
   value.slice(0, MAX_QUICK_NOTE_CHARS);
+
+const getNotePreviewTitle = (note: NoteItem) =>
+  note.title?.trim() || getQuickNoteTitle(note.content);
+
+const getNotePreviewExcerpt = (note: NoteItem) => {
+  const title = getNotePreviewTitle(note);
+  const content = note.content?.trim();
+
+  if (!content) {
+    return NOTE_EMPTY_CONTENT_LABEL;
+  }
+
+  const lines = content.replace(/\r\n/g, "\n").split("\n");
+  const firstContentIndex = lines.findIndex((line) => line.trim());
+  const firstContentLine =
+    firstContentIndex === -1 ? "" : lines[firstContentIndex].trim();
+
+  if (firstContentLine === title) {
+    const remainingContent = lines
+      .slice(firstContentIndex + 1)
+      .join("\n")
+      .trim();
+    return remainingContent || NOTE_EMPTY_CONTENT_LABEL;
+  }
+
+  return content;
+};
 
 const getChangedEmotionLabel = (recap: RecapDashboard) => {
   const changed = recap.most_changed_emotion;
@@ -638,8 +666,8 @@ export default function DashboardHomePage() {
                   <p className="home-notes-group-title">{group.label}</p>
                   <div className="home-notes-cards">
                     {group.items.map((note) => {
-                      const title = note.title?.trim() || "Untitled note";
-                      const excerpt = note.content?.trim() || "No preview available.";
+                      const title = getNotePreviewTitle(note);
+                      const excerpt = getNotePreviewExcerpt(note);
                       return (
                         <button
                           key={note.id}

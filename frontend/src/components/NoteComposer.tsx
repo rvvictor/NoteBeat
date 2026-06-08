@@ -16,26 +16,39 @@ import { NoteItem, SpotifyTrack } from "@/lib/notes";
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
-const getNoteTitle = (title: string, content: string) => {
+const getTrimmedLines = (value: string) =>
+  value.replace(/\r\n/g, "\n").split("\n");
+
+const getFirstContentLine = (value: string) =>
+  getTrimmedLines(value)
+    .map((line) => line.trim())
+    .find(Boolean) ?? "";
+
+const truncateTitle = (value: string) =>
+  value.length > 90 ? `${value.slice(0, 87)}...` : value;
+
+const getNoteDraft = (title: string, content: string) => {
   const explicitTitle = title.trim();
 
   if (explicitTitle) {
-    return explicitTitle.length > 90
-      ? `${explicitTitle.slice(0, 87)}...`
-      : explicitTitle;
+    return {
+      title: truncateTitle(explicitTitle),
+      content: content.trim(),
+    };
   }
 
-  const firstLine = content
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .find(Boolean);
-
-  if (!firstLine) {
-    return "Untitled note";
+  if (!content.trim()) {
+    return null;
   }
 
-  return firstLine.length > 72 ? `${firstLine.slice(0, 69)}...` : firstLine;
+  return {
+    title: "",
+    content: content.trim(),
+  };
 };
+
+const getRecommendationText = (title: string, content: string) =>
+  [title.trim(), content.trim()].filter(Boolean).join("\n");
 
 type NoteComposerProps = {
   initialNote?: NoteItem | null;
@@ -61,6 +74,29 @@ const getInitialSelectedTrack = (note?: NoteItem | null): SpotifyTrack | null =>
   };
 };
 
+const getInitialEditorFields = (note?: NoteItem | null) => {
+  if (!note) {
+    return { title: "", content: "" };
+  }
+
+  const storedTitle = note.title?.trim() ?? "";
+  const storedContent = note.content ?? "";
+
+  if (!storedTitle) {
+    return { title: "", content: storedContent };
+  }
+
+  if (getFirstContentLine(storedContent) === storedTitle) {
+    return { title: "", content: storedContent };
+  }
+
+  if (!storedContent.trim()) {
+    return { title: "", content: storedTitle };
+  }
+
+  return { title: storedTitle, content: storedContent };
+};
+
 export default function NoteComposer({
   initialNote = null,
   onCreated,
@@ -69,11 +105,14 @@ export default function NoteComposer({
 }: NoteComposerProps) {
   const router = useRouter();
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const titleRef = useRef<HTMLInputElement | null>(null);
+  const bodyRef = useRef<HTMLTextAreaElement | null>(null);
 
   const isEditing = Boolean(initialNote);
+  const initialEditorFields = getInitialEditorFields(initialNote);
 
-  const [title, setTitle] = useState(initialNote?.title ?? "");
-  const [content, setContent] = useState(initialNote?.content ?? "");
+  const [title, setTitle] = useState(initialEditorFields.title);
+  const [content, setContent] = useState(initialEditorFields.content);
   const [songTitle, setSongTitle] = useState(initialNote?.song?.title ?? "");
   const [songArtist, setSongArtist] = useState(initialNote?.song?.artist ?? "");
   const [songAlbum, setSongAlbum] = useState(initialNote?.song?.album ?? "");
@@ -99,6 +138,18 @@ export default function NoteComposer({
   >(null);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isEditing) {
+      return;
+    }
+
+    const focusId = window.requestAnimationFrame(() => {
+      titleRef.current?.focus();
+    });
+
+    return () => window.cancelAnimationFrame(focusId);
+  }, [isEditing]);
 
   useEffect(() => {
     getSpotifyStatus()
@@ -150,7 +201,7 @@ export default function NoteComposer({
   }, [router, spotifyQuery]);
 
   useEffect(() => {
-    const noteText = content.trim();
+    const noteText = getRecommendationText(title, content);
 
     if (isSpotifyConnected !== true || noteText.length < 20) {
       return;
@@ -187,7 +238,7 @@ export default function NoteComposer({
     }, 1200);
 
     return () => clearTimeout(timeoutId);
-  }, [content, isSpotifyConnected, router]);
+  }, [content, isSpotifyConnected, router, title]);
 
   const waveformBars = useMemo(
     () => [2, 4, 7, 5, 8, 4, 6, 3, 8, 6, 4, 7, 3, 6, 5, 8, 4, 6, 3, 7],
@@ -198,15 +249,7 @@ export default function NoteComposer({
     ? Math.min(previewTime / previewDuration, 1)
     : 0;
 
-  const handleContentChange = (
-    event: React.ChangeEvent<HTMLTextAreaElement>
-  ) => {
-    const value = event.target.value;
-    const noteText = value.trim();
-
-    setContent(value);
-    setError(null);
-
+  const updateRecommendationState = (nextTitle: string, nextContent: string) => {
     if (isSpotifyConnected === false) {
       setRecommendations([]);
       setRecommendationMessage("Connect Spotify to see recommendations.");
@@ -218,6 +261,8 @@ export default function NoteComposer({
       return;
     }
 
+    const noteText = getRecommendationText(nextTitle, nextContent);
+
     if (noteText.length < 20) {
       setRecommendations([]);
       setRecommendationMessage("Write a bit more to get recommendations.");
@@ -227,6 +272,35 @@ export default function NoteComposer({
 
     setIsRecommending(true);
     setRecommendationMessage(null);
+  };
+
+  const handleTitleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const value = event.target.value;
+
+    setTitle(value);
+    setError(null);
+    updateRecommendationState(value, content);
+  };
+
+  const handleTitleKeyDown = (
+    event: React.KeyboardEvent<HTMLInputElement>
+  ) => {
+    if (event.key !== "Enter") {
+      return;
+    }
+
+    event.preventDefault();
+    bodyRef.current?.focus();
+  };
+
+  const handleContentChange = (
+    event: React.ChangeEvent<HTMLTextAreaElement>
+  ) => {
+    const value = event.target.value;
+
+    setContent(value);
+    setError(null);
+    updateRecommendationState(title, value);
   };
 
   const handleSpotifyQueryChange = (
@@ -333,7 +407,9 @@ export default function NoteComposer({
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!content.trim()) {
+    const draft = getNoteDraft(title, content);
+
+    if (!draft) {
       setError("Write something before saving.");
       return;
     }
@@ -354,8 +430,8 @@ export default function NoteComposer({
 
     try {
       const payload = {
-        title: getNoteTitle(title, content),
-        content: content.trim(),
+        title: draft.title,
+        content: draft.content,
         song: hasSongData
           ? {
               title: songTitle.trim(),
@@ -406,21 +482,24 @@ export default function NoteComposer({
       >
         <input
           id="note-title"
+          ref={titleRef}
           value={title}
-          onChange={(event) => setTitle(event.target.value)}
+          onChange={handleTitleChange}
+          onKeyDown={handleTitleKeyDown}
           className="composer-title-input"
-          placeholder="Untitled"
-          aria-label="Note title, optional"
+          placeholder="How do you feel today?"
+          aria-label="First line"
+          autoFocus={!isEditing}
         />
         <textarea
           id="note-content"
+          ref={bodyRef}
           value={content}
           onChange={handleContentChange}
           rows={10}
           className="composer-body-textarea"
-          placeholder="How do you feel today?"
-          aria-label="Note content"
-          required
+          placeholder="Keep going..."
+          aria-label="Note body"
         />
       </section>
 

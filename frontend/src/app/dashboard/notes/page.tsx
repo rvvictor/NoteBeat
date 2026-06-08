@@ -6,6 +6,42 @@ import { ApiError, getNotes } from "@/lib/api";
 import { NoteItem } from "@/lib/notes";
 import NoteComposer from "@/components/NoteComposer";
 
+const NOTE_EMPTY_CONTENT_LABEL = "No additional text";
+
+const getFirstContentLine = (value: string) =>
+  value
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map((line) => line.trim())
+    .find(Boolean) ?? "";
+
+const getNotePreviewTitle = (note: NoteItem) =>
+  note.title?.trim() || getFirstContentLine(note.content) || "Untitled note";
+
+const getNotePreviewContent = (note: NoteItem) => {
+  const title = getNotePreviewTitle(note);
+  const content = note.content?.trim();
+
+  if (!content) {
+    return NOTE_EMPTY_CONTENT_LABEL;
+  }
+
+  const lines = content.replace(/\r\n/g, "\n").split("\n");
+  const firstContentIndex = lines.findIndex((line) => line.trim());
+  const firstContentLine =
+    firstContentIndex === -1 ? "" : lines[firstContentIndex].trim();
+
+  if (firstContentLine === title) {
+    const remainingContent = lines
+      .slice(firstContentIndex + 1)
+      .join("\n")
+      .trim();
+    return remainingContent || NOTE_EMPTY_CONTENT_LABEL;
+  }
+
+  return content;
+};
+
 export default function NotesPage() {
   const router = useRouter();
   const [notes, setNotes] = useState<NoteItem[]>([]);
@@ -79,16 +115,16 @@ export default function NotesPage() {
                     type="button"
                     className="dashboard-card dashboard-card-tight dashboard-note-edit-card"
                     onClick={() => setEditingNote(note)}
-                    aria-label={`Edit ${note.title || "Untitled note"}`}
+                    aria-label={`Edit ${getNotePreviewTitle(note)}`}
                   >
                     <p className="form-helper">
                       {new Date(note.created_at).toLocaleString()}
                     </p>
                     <h3 className="text-lg font-semibold text-gray-900 mt-2">
-                      {note.title}
+                      {getNotePreviewTitle(note)}
                     </h3>
                     <p className="text-gray-700 mt-2 whitespace-pre-line">
-                      {note.content}
+                      {getNotePreviewContent(note)}
                     </p>
                     {note.song && (
                       <div className="mt-3 text-sm text-gray-600">

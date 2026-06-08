@@ -1928,14 +1928,17 @@ a {
 .composer-title-input,
 .composer-body-textarea {
   width: 100%;
-  border: none;
+  appearance: none;
+  border: 0;
   background: transparent;
+  box-shadow: none;
   color: #111827;
 }
 
 .composer-title-input {
-  padding: 0.1rem 0.1rem 0.45rem;
-  border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+  display: block;
+  padding: 0.1rem 0.1rem 0.3rem;
+  border-bottom: 0;
   font-family: var(--font-display), "Times New Roman", serif;
   font-size: 1.3rem;
   font-weight: 700;
@@ -1949,7 +1952,7 @@ a {
 .composer-body-textarea {
   min-height: 250px;
   resize: vertical;
-  padding: 0.9rem 0.1rem 0.1rem;
+  padding: 0.35rem 0.1rem 0.1rem;
   font-size: 1rem;
   line-height: 1.58;
 }
@@ -1964,10 +1967,6 @@ a {
 .composer-search-input:focus,
 .composer-chip-input:focus {
   outline: none;
-}
-
-.composer-title-input:focus {
-  border-bottom-color: rgba(37, 99, 235, 0.35);
 }
 
 .composer-sound-panel {
