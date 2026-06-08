@@ -242,6 +242,7 @@ export default function DashboardHomePage() {
   const [quickStatus, setQuickStatus] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isFullEditorOpen, setIsFullEditorOpen] = useState(false);
+  const [editingNote, setEditingNote] = useState<NoteItem | null>(null);
   const [visibleCount, setVisibleCount] = useState(7);
   const [recapRange, setRecapRange] = useState<RecapRange>("week");
   const [recap, setRecap] = useState<RecapDashboard | null>(null);
@@ -495,6 +496,23 @@ export default function DashboardHomePage() {
     setRecapRefreshKey((prev) => prev + 1);
   };
 
+  const handleEditNoteClick = (note: NoteItem) => {
+    setEditingNote(note);
+    setQuickStatus(null);
+    setQuickError(null);
+  };
+
+  const handleNoteUpdated = (updated: NoteItem) => {
+    setNotes((prev) =>
+      prev.map((note) => (note.id === updated.id ? updated : note))
+    );
+    setEditingNote(null);
+    setQuickStatus("Note updated.");
+    setRecapLoading(true);
+    setRecapError(null);
+    setRecapRefreshKey((prev) => prev + 1);
+  };
+
   const handleRecapRangeChange = (range: RecapRange) => {
     if (range === recapRange) {
       return;
@@ -623,15 +641,17 @@ export default function DashboardHomePage() {
                       const title = note.title?.trim() || "Untitled note";
                       const excerpt = note.content?.trim() || "No preview available.";
                       return (
-                        <Link
+                        <button
                           key={note.id}
-                          href={`/dashboard/notes/${note.id}`}
+                          type="button"
                           className="home-note-card"
+                          onClick={() => handleEditNoteClick(note)}
+                          aria-label={`Edit ${title}`}
                         >
                           <h4 className="home-note-title">{title}</h4>
                           <p className="home-note-meta">{getNoteDateLabel(note)}</p>
                           <p className="home-note-excerpt">{excerpt}</p>
-                        </Link>
+                        </button>
                       );
                     })}
                   </div>
@@ -806,6 +826,39 @@ export default function DashboardHomePage() {
             <NoteComposer
               onCreated={handleFullNoteCreated}
               submitLabel="Save note"
+            />
+          </div>
+        </div>
+      )}
+
+      {editingNote && (
+        <div className="home-modal" role="dialog" aria-modal="true">
+          <div
+            className="home-modal-backdrop"
+            onClick={() => setEditingNote(null)}
+          />
+          <div className="home-modal-card home-note-modal-card">
+            <div className="home-editor-header">
+              <div>
+                <p className="home-panel-kicker">Edit note</p>
+                <h2 className="home-panel-title">Revisit the moment</h2>
+                <p className="home-panel-subtitle">
+                  Adjust the words or the song without leaving your feed.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="home-editor-close"
+                onClick={() => setEditingNote(null)}
+              >
+                Close
+              </button>
+            </div>
+            <NoteComposer
+              key={editingNote.id}
+              initialNote={editingNote}
+              onUpdated={handleNoteUpdated}
+              submitLabel="Save changes"
             />
           </div>
         </div>

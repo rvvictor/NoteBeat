@@ -24,7 +24,7 @@ export default function EmotionPage() {
         setError(message);
       })
       .finally(() => setIsLoading(false));
-  }, []);
+  }, [router]);
 
   if (isLoading) {
     return (

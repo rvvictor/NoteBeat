@@ -70,27 +70,14 @@ export default function NoteDetailPage() {
         setError(message);
       })
       .finally(() => setIsLoading(false));
-  }, [noteId]);
+  }, [noteId, router]);
 
   useEffect(() => {
     const query = spotifyQuery.trim();
 
-    if (!query) {
-      setSpotifyResults([]);
-      setSpotifyMessage(null);
-      setIsSearching(false);
-      return;
-    }
-
     if (query.length < 2) {
-      setSpotifyResults([]);
-      setSpotifyMessage("Type at least 2 characters to search.");
-      setIsSearching(false);
       return;
     }
-
-    setIsSearching(true);
-    setSpotifyMessage(null);
 
     const timeoutId = setTimeout(() => {
       searchSpotify(query, 6)
@@ -114,13 +101,9 @@ export default function NoteDetailPage() {
     }, 450);
 
     return () => clearTimeout(timeoutId);
-  }, [spotifyQuery]);
+  }, [router, spotifyQuery]);
 
-  useEffect(() => {
-    if (!removeSong) {
-      return;
-    }
-
+  const clearSongFields = () => {
     setSelectedTrack(null);
     setSongTitle("");
     setSongArtist("");
@@ -131,7 +114,45 @@ export default function NoteDetailPage() {
     setSpotifyMessage(null);
     setPreviewDuration(null);
     setPreviewTime(0);
-  }, [removeSong]);
+  };
+
+  const handleSpotifyQueryChange = (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const value = event.target.value;
+    const query = value.trim();
+
+    setSpotifyQuery(value);
+
+    if (!query) {
+      setSpotifyResults([]);
+      setSpotifyMessage(null);
+      setIsSearching(false);
+      return;
+    }
+
+    if (query.length < 2) {
+      setSpotifyResults([]);
+      setSpotifyMessage("Type at least 2 characters to search.");
+      setIsSearching(false);
+      return;
+    }
+
+    setIsSearching(true);
+    setSpotifyMessage(null);
+  };
+
+  const handleRemoveSongChange = (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const checked = event.target.checked;
+
+    setRemoveSong(checked);
+
+    if (checked) {
+      clearSongFields();
+    }
+  };
 
   const buildSongPayload = (): SongPayload | null => {
     if (removeSong) {
@@ -408,7 +429,7 @@ export default function NoteDetailPage() {
                 <input
                   id="spotify-search"
                   value={spotifyQuery}
-                  onChange={(event) => setSpotifyQuery(event.target.value)}
+                  onChange={handleSpotifyQueryChange}
                   className="form-input"
                   placeholder="Song, artist, album"
                   disabled={removeSong}
@@ -514,7 +535,7 @@ export default function NoteDetailPage() {
               <input
                 type="checkbox"
                 checked={removeSong}
-                onChange={(event) => setRemoveSong(event.target.checked)}
+                onChange={handleRemoveSongChange}
               />{" "}
               Remove song from this note
             </label>

@@ -9,6 +9,7 @@ import {
   getSpotifyRecommendations,
   getSpotifyStatus,
   searchSpotify,
+  updateNote,
 } from "@/lib/api";
 import { NoteItem, SpotifyTrack } from "@/lib/notes";
 
@@ -37,28 +38,55 @@ const getNoteTitle = (title: string, content: string) => {
 };
 
 type NoteComposerProps = {
+  initialNote?: NoteItem | null;
   onCreated?: (note: NoteItem) => void;
+  onUpdated?: (note: NoteItem) => void;
   submitLabel?: string;
 };
 
+const getInitialSelectedTrack = (note?: NoteItem | null): SpotifyTrack | null => {
+  const song = note?.song;
+
+  if (!note || !song?.title || !song.artist) {
+    return null;
+  }
+
+  return {
+    id: song.spotify_id || `note-${note.id}`,
+    title: song.title,
+    artist: song.artist,
+    album: song.album,
+    image_url: song.image_url ?? null,
+    preview_url: null,
+  };
+};
+
 export default function NoteComposer({
+  initialNote = null,
   onCreated,
+  onUpdated,
   submitLabel = "Save note",
 }: NoteComposerProps) {
   const router = useRouter();
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
-  const [songTitle, setSongTitle] = useState("");
-  const [songArtist, setSongArtist] = useState("");
-  const [songAlbum, setSongAlbum] = useState("");
-  const [songSpotifyId, setSongSpotifyId] = useState("");
+  const isEditing = Boolean(initialNote);
+
+  const [title, setTitle] = useState(initialNote?.title ?? "");
+  const [content, setContent] = useState(initialNote?.content ?? "");
+  const [songTitle, setSongTitle] = useState(initialNote?.song?.title ?? "");
+  const [songArtist, setSongArtist] = useState(initialNote?.song?.artist ?? "");
+  const [songAlbum, setSongAlbum] = useState(initialNote?.song?.album ?? "");
+  const [songSpotifyId, setSongSpotifyId] = useState(
+    initialNote?.song?.spotify_id ?? ""
+  );
   const [spotifyQuery, setSpotifyQuery] = useState("");
   const [spotifyResults, setSpotifyResults] = useState<SpotifyTrack[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [spotifyMessage, setSpotifyMessage] = useState<string | null>(null);
-  const [selectedTrack, setSelectedTrack] = useState<SpotifyTrack | null>(null);
+  const [selectedTrack, setSelectedTrack] = useState<SpotifyTrack | null>(
+    getInitialSelectedTrack(initialNote)
+  );
   const [previewDuration, setPreviewDuration] = useState<number | null>(null);
   const [previewTime, setPreviewTime] = useState(0);
   const [isSpotifyConnected, setIsSpotifyConnected] = useState<boolean | null>(
@@ -251,6 +279,38 @@ export default function NoteComposer({
     setPreviewTime(0);
   };
 
+  const clearTrackSelectionForManualEdit = () => {
+    if (!selectedTrack) {
+      return;
+    }
+
+    setSelectedTrack(null);
+    setSongSpotifyId("");
+    setPreviewDuration(null);
+    setPreviewTime(0);
+  };
+
+  const handleSongTitleChange = (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    clearTrackSelectionForManualEdit();
+    setSongTitle(event.target.value);
+  };
+
+  const handleSongArtistChange = (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    clearTrackSelectionForManualEdit();
+    setSongArtist(event.target.value);
+  };
+
+  const handleSongAlbumChange = (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    clearTrackSelectionForManualEdit();
+    setSongAlbum(event.target.value);
+  };
+
   const handleConnectSpotify = () => {
     window.location.href = `${API_BASE}/spotify/login`;
   };
@@ -307,20 +367,25 @@ export default function NoteComposer({
           : null,
       };
 
-      const created = await createNote(payload);
-      onCreated?.(created);
-      setTitle("");
-      setContent("");
-      setSongTitle("");
-      setSongArtist("");
-      setSongAlbum("");
-      setSongSpotifyId("");
-      setSpotifyQuery("");
-      setSpotifyResults([]);
-      setSpotifyMessage(null);
-      setSelectedTrack(null);
-      setRecommendations([]);
-      setRecommendationMessage(null);
+      if (initialNote) {
+        const updated = await updateNote(initialNote.id, payload);
+        onUpdated?.(updated);
+      } else {
+        const created = await createNote(payload);
+        onCreated?.(created);
+        setTitle("");
+        setContent("");
+        setSongTitle("");
+        setSongArtist("");
+        setSongAlbum("");
+        setSongSpotifyId("");
+        setSpotifyQuery("");
+        setSpotifyResults([]);
+        setSpotifyMessage(null);
+        setSelectedTrack(null);
+        setRecommendations([]);
+        setRecommendationMessage(null);
+      }
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         router.push("/login");
@@ -335,7 +400,10 @@ export default function NoteComposer({
 
   return (
     <form onSubmit={handleSubmit} className="note-composer">
-      <section className="composer-paper" aria-label="Write a note">
+      <section
+        className="composer-paper"
+        aria-label={isEditing ? "Edit note" : "Write a note"}
+      >
         <input
           id="note-title"
           value={title}
@@ -547,7 +615,7 @@ export default function NoteComposer({
           <input
             id="song-title"
             value={songTitle}
-            onChange={(event) => setSongTitle(event.target.value)}
+            onChange={handleSongTitleChange}
             className="composer-chip-input"
             placeholder="Song title"
             aria-label="Song title"
@@ -555,7 +623,7 @@ export default function NoteComposer({
           <input
             id="song-artist"
             value={songArtist}
-            onChange={(event) => setSongArtist(event.target.value)}
+            onChange={handleSongArtistChange}
             className="composer-chip-input"
             placeholder="Artist"
             aria-label="Artist"
@@ -563,7 +631,7 @@ export default function NoteComposer({
           <input
             id="song-album"
             value={songAlbum}
-            onChange={(event) => setSongAlbum(event.target.value)}
+            onChange={handleSongAlbumChange}
             className="composer-chip-input"
             placeholder="Album"
             aria-label="Album"

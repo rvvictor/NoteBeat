@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { ApiError, getNotes } from "@/lib/api";
 import { NoteItem } from "@/lib/notes";
 import NoteComposer from "@/components/NoteComposer";
@@ -10,6 +9,7 @@ import NoteComposer from "@/components/NoteComposer";
 export default function NotesPage() {
   const router = useRouter();
   const [notes, setNotes] = useState<NoteItem[]>([]);
+  const [editingNote, setEditingNote] = useState<NoteItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -26,6 +26,13 @@ export default function NotesPage() {
       })
       .finally(() => setIsLoading(false));
   }, [router]);
+
+  const handleNoteUpdated = (updated: NoteItem) => {
+    setNotes((prev) =>
+      prev.map((note) => (note.id === updated.id ? updated : note))
+    );
+    setEditingNote(null);
+  };
 
   return (
     <section className="dashboard-content">
@@ -67,7 +74,13 @@ export default function NotesPage() {
             ) : (
               <div className="list-stack mt-6">
                 {notes.map((note) => (
-                  <div key={note.id} className="dashboard-card dashboard-card-tight">
+                  <button
+                    key={note.id}
+                    type="button"
+                    className="dashboard-card dashboard-card-tight dashboard-note-edit-card"
+                    onClick={() => setEditingNote(note)}
+                    aria-label={`Edit ${note.title || "Untitled note"}`}
+                  >
                     <p className="form-helper">
                       {new Date(note.created_at).toLocaleString()}
                     </p>
@@ -92,21 +105,46 @@ export default function NotesPage() {
                         )}
                       </div>
                     )}
-                    <div className="mt-4">
-                      <Link
-                        href={`/dashboard/notes/${note.id}`}
-                        className="text-link"
-                      >
-                        View details
-                      </Link>
-                    </div>
-                  </div>
+                  </button>
                 ))}
               </div>
             )}
           </div>
         </div>
       </div>
+
+      {editingNote && (
+        <div className="home-modal" role="dialog" aria-modal="true">
+          <div
+            className="home-modal-backdrop"
+            onClick={() => setEditingNote(null)}
+          />
+          <div className="home-modal-card home-note-modal-card">
+            <div className="home-editor-header">
+              <div>
+                <p className="home-panel-kicker">Edit note</p>
+                <h2 className="home-panel-title">Revisit the moment</h2>
+                <p className="home-panel-subtitle">
+                  Adjust the words or the song without leaving this page.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="home-editor-close"
+                onClick={() => setEditingNote(null)}
+              >
+                Close
+              </button>
+            </div>
+            <NoteComposer
+              key={editingNote.id}
+              initialNote={editingNote}
+              onUpdated={handleNoteUpdated}
+              submitLabel="Save changes"
+            />
+          </div>
+        </div>
+      )}
     </section>
   );
 }
