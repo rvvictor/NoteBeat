@@ -224,6 +224,17 @@ const getNotePreviewExcerpt = (note: NoteItem) => {
   return content;
 };
 
+const getUserHandle = (name: string) => {
+  const normalized = name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "")
+    .slice(0, 18);
+
+  return normalized ? `@${normalized}` : "@notebeat";
+};
+
 const getChangedEmotionLabel = (recap: RecapDashboard) => {
   const changed = recap.most_changed_emotion;
 
@@ -401,6 +412,8 @@ export default function DashboardHomePage() {
 
   const profileName = username || "Your profile";
   const profileInitials = username ? getInitials(username) : "NB";
+  const profileHandle = getUserHandle(profileName);
+  const feedNotes = useMemo(() => sortedNotes.slice(0, 8), [sortedNotes]);
 
   const avgIntensityLabel = useMemo(() => {
     if (!stats) {
@@ -719,6 +732,7 @@ export default function DashboardHomePage() {
                 onChange={handleQuickContentChange}
                 className="home-quick-textarea"
                 rows={5}
+                placeholder="How do you feel today?"
                 aria-label="Quick note"
                 maxLength={MAX_QUICK_NOTE_CHARS}
                 required
@@ -742,6 +756,105 @@ export default function DashboardHomePage() {
             </div>
           </form>
         </div>
+
+        <section className="home-feed">
+          <div className="home-feed-header">
+            <div>
+              <p className="home-panel-kicker">Feed</p>
+              <h2 className="home-feed-title">Recent pulses</h2>
+            </div>
+          </div>
+
+          {notesLoading && (
+            <div className="home-feed-empty">Loading posts...</div>
+          )}
+
+          {!notesLoading && notesError && (
+            <div className="home-error">{notesError}</div>
+          )}
+
+          {!notesLoading && !notesError && feedNotes.length === 0 && (
+            <div className="home-feed-empty">No posts yet.</div>
+          )}
+
+          {!notesLoading && !notesError && feedNotes.length > 0 && (
+            <div className="home-feed-list">
+              {feedNotes.map((note) => {
+                const phrase = getNotePreviewTitle(note);
+                const body = getNotePreviewExcerpt(note);
+                const hasSong =
+                  Boolean(note.song?.title?.trim()) &&
+                  Boolean(note.song?.artist?.trim());
+
+                return (
+                  <article key={`feed-${note.id}`} className="feed-post">
+                    <header className="feed-post-header">
+                      <div className="feed-post-avatar" aria-hidden="true">
+                        {profileInitials}
+                      </div>
+                      <div className="feed-post-user">
+                        <p className="feed-post-name">{profileName}</p>
+                        <p className="feed-post-meta">
+                          {profileHandle} - {getNoteDateLabel(note)}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        className="feed-post-edit"
+                        onClick={() => handleEditNoteClick(note)}
+                      >
+                        Edit
+                      </button>
+                    </header>
+
+                    {phrase && phrase !== "Untitled note" && (
+                      <p className="feed-post-phrase">&quot;{phrase}&quot;</p>
+                    )}
+
+                    <p
+                      className={`feed-post-body${
+                        body === NOTE_EMPTY_CONTENT_LABEL ? " is-empty" : ""
+                      }`}
+                    >
+                      {body}
+                    </p>
+
+                    {hasSong && note.song && (
+                      <div className="feed-post-song">
+                        <div className="feed-song-art" aria-hidden="true">
+                          {note.song.image_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={note.song.image_url}
+                              alt=""
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <span>{note.song.title.slice(0, 1)}</span>
+                          )}
+                        </div>
+                        <div className="feed-song-info">
+                          <p className="feed-song-label">Soundtrack</p>
+                          <p className="feed-song-title">{note.song.title}</p>
+                          <p className="feed-song-artist">
+                            {note.song.artist}
+                            {note.song.album ? ` - ${note.song.album}` : ""}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    <footer className="feed-post-footer" aria-label="Post actions">
+                      <span>Reflect</span>
+                      <span>Save</span>
+                      <span>Share</span>
+                    </footer>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </section>
       </section>
 
       {isChatOpen && (
