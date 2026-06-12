@@ -487,7 +487,6 @@ export default function NoteComposer({
           onChange={handleTitleChange}
           onKeyDown={handleTitleKeyDown}
           className="composer-title-input"
-          placeholder="How do you feel today?"
           aria-label="First line"
           autoFocus={!isEditing}
         />
@@ -498,7 +497,6 @@ export default function NoteComposer({
           onChange={handleContentChange}
           rows={10}
           className="composer-body-textarea"
-          placeholder="Keep going..."
           aria-label="Note body"
         />
       </section>

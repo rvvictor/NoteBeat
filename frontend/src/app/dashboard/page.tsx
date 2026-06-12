@@ -719,7 +719,6 @@ export default function DashboardHomePage() {
                 onChange={handleQuickContentChange}
                 className="home-quick-textarea"
                 rows={5}
-                placeholder="How do you feel today?"
                 aria-label="Quick note"
                 maxLength={MAX_QUICK_NOTE_CHARS}
                 required
@@ -837,11 +836,7 @@ export default function DashboardHomePage() {
           <div className="home-modal-card home-note-modal-card">
             <div className="home-editor-header">
               <div>
-                <p className="home-panel-kicker">New note</p>
-                <h2 className="home-panel-title">Catch the moment</h2>
-                <p className="home-panel-subtitle">
-                  Write first. Add the song if it belongs here.
-                </p>
+                <h2 className="home-panel-title">New Note</h2>
               </div>
               <button
                 type="button"
