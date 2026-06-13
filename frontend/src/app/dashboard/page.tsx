@@ -1661,6 +1661,7 @@ export default function DashboardHomePage() {
           >
             <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
               <path
+                className="action-fill"
                 d="M10 16.2s-5.6-3.2-7.1-6.8C1.8 6.8 3.3 4.5 5.8 4.5c1.5 0 2.8.8 3.5 2 .7-1.2 2-2 3.5-2 2.5 0 4 2.3 2.9 4.9C15.6 13 10 16.2 10 16.2z"
                 stroke="currentColor"
                 strokeWidth="1.5"
@@ -1671,12 +1672,30 @@ export default function DashboardHomePage() {
           </button>
           <button
             type="button"
+            className={`feed-post-action${isReposted ? " active repost" : ""}`}
+            aria-pressed={isReposted}
+            onClick={() => void handleToggleInteraction(note, "repost")}
+          >
+            <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+              <path
+                d="M6.2 5.6h6.4c1.6 0 2.9 1.3 2.9 2.9v.5M8 3.8 6.1 5.6 8 7.4M13.8 14.4H7.4c-1.6 0-2.9-1.3-2.9-2.9V11M12 16.2l1.9-1.8L12 12.6"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            Repost
+          </button>
+          <button
+            type="button"
             className={`feed-post-action${isSaved ? " active save" : ""}`}
             aria-pressed={isSaved}
             onClick={() => void handleToggleInteraction(note, "save")}
           >
             <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
               <path
+                className="action-fill"
                 d="M6 4.2h8c.6 0 1 .4 1 1v11.1l-5-3-5 3V5.2c0-.6.4-1 1-1z"
                 stroke="currentColor"
                 strokeWidth="1.5"
@@ -1699,23 +1718,6 @@ export default function DashboardHomePage() {
               />
             </svg>
             Share
-          </button>
-          <button
-            type="button"
-            className={`feed-post-action${isReposted ? " active repost" : ""}`}
-            aria-pressed={isReposted}
-            onClick={() => void handleToggleInteraction(note, "repost")}
-          >
-            <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
-              <path
-                d="M6.4 5.2h6.5c1.7 0 3 1.3 3 3v.7M8.1 3.4 6.3 5.2 8.1 7M13.6 14.8H7.1c-1.7 0-3-1.3-3-3v-.7M11.9 16.6l1.8-1.8-1.8-1.8"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-            Repost
           </button>
         </footer>
       </article>
