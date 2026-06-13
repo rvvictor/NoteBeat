@@ -897,8 +897,8 @@ a {
 .profile-hero {
   position: relative;
   display: grid;
-  grid-template-rows: 132px auto minmax(132px, auto);
-  min-height: 326px;
+  grid-template-rows: 132px auto minmax(150px, auto);
+  min-height: 350px;
   overflow: hidden;
   border: 1px solid rgba(203, 213, 225, 0.8);
   border-top: none;
@@ -975,8 +975,8 @@ a {
   z-index: 1;
   display: grid;
   align-content: start;
-  gap: 0.42rem;
-  min-height: 132px;
+  gap: 0.36rem;
+  min-height: 150px;
   padding: 0.15rem 1rem 1rem;
   background: #ffffff;
 }
@@ -1036,24 +1036,29 @@ a {
 }
 
 .profile-signature {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.38rem;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.32rem;
   margin-top: 0.16rem;
+  max-width: 360px;
 }
 
 .profile-signal-pill {
   display: inline-flex;
   align-items: center;
-  gap: 0.28rem;
+  justify-content: center;
+  gap: 0.22rem;
+  min-width: 0;
   border: 1px solid rgba(20, 184, 166, 0.24);
   border-radius: 999px;
   background:
     linear-gradient(135deg, rgba(240, 253, 250, 0.95), rgba(239, 246, 255, 0.95));
   color: #0f172a;
-  padding: 0.24rem 0.48rem;
-  font-size: 0.68rem;
+  padding: 0.2rem 0.38rem;
+  font-size: 0.62rem;
   font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .profile-signal-pill span {
@@ -1729,7 +1734,10 @@ a {
 }
 
 .profile-edit-preview-cover {
+  position: relative;
+  display: block;
   height: 118px;
+  cursor: pointer;
   background:
     linear-gradient(135deg, rgba(15, 23, 42, 0.82), rgba(20, 184, 166, 0.2)),
     linear-gradient(90deg, #172033, #334155 46%, #0f766e);
@@ -1759,6 +1767,7 @@ a {
   font-size: 1.2rem;
   font-weight: 900;
   box-shadow: 0 14px 28px rgba(15, 23, 42, 0.14);
+  cursor: pointer;
 }
 
 .profile-edit-preview-avatar img {
@@ -1766,6 +1775,53 @@ a {
   height: 100%;
   object-fit: cover;
   display: block;
+}
+
+.profile-image-picker {
+  color: inherit;
+}
+
+.profile-image-picker input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.profile-image-picker-label {
+  position: absolute;
+  right: 0.8rem;
+  bottom: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.64);
+  color: #ffffff;
+  padding: 0.3rem 0.58rem;
+  font-size: 0.68rem;
+  font-weight: 850;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.profile-image-picker-label-round {
+  inset: auto;
+  left: 50%;
+  bottom: 0.52rem;
+  transform: translate(-50%, 4px);
+  padding: 0.26rem 0.45rem;
+}
+
+.profile-image-picker:hover .profile-image-picker-label,
+.profile-image-picker:focus-within .profile-image-picker-label {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.profile-image-picker:hover .profile-image-picker-label-round,
+.profile-image-picker:focus-within .profile-image-picker-label-round {
+  transform: translate(-50%, 0);
 }
 
 .profile-edit-grid {
@@ -1815,13 +1871,12 @@ a {
   box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
 }
 
-.profile-file-row {
+.profile-image-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.55rem;
 }
 
-.profile-file-control,
 .profile-file-remove {
   display: inline-flex;
   align-items: center;
@@ -1831,21 +1886,6 @@ a {
   font-size: 0.78rem;
   font-weight: 850;
   cursor: pointer;
-}
-
-.profile-file-control {
-  border: 1px solid rgba(20, 184, 166, 0.28);
-  background: rgba(20, 184, 166, 0.12);
-  color: #0f766e;
-  padding: 0 0.82rem;
-}
-
-.profile-file-control input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-  pointer-events: none;
 }
 
 .profile-file-remove {

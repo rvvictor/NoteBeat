@@ -787,8 +787,8 @@ export default function DashboardHomePage() {
         },
         hero: {
           display: "grid",
-          gridTemplateRows: "132px auto minmax(132px, auto)",
-          minHeight: "326px",
+          gridTemplateRows: "132px auto minmax(150px, auto)",
+          minHeight: "350px",
           position: "relative",
           overflow: "hidden",
           border: "1px solid rgba(203, 213, 225, 0.8)",
@@ -865,8 +865,8 @@ export default function DashboardHomePage() {
           zIndex: 1,
           display: "grid",
           alignContent: "start",
-          gap: "0.42rem",
-          minHeight: "132px",
+          gap: "0.36rem",
+          minHeight: "150px",
           padding: "0.15rem 1rem 1rem",
           background: "#ffffff",
         },
@@ -912,23 +912,28 @@ export default function DashboardHomePage() {
           fontSize: "0.84rem",
         },
         signature: {
-          display: "flex",
-          flexWrap: "wrap",
-          gap: "0.38rem",
+          display: "grid",
+          gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+          gap: "0.32rem",
           marginTop: "0.16rem",
+          maxWidth: "360px",
         },
         signalPill: {
           display: "inline-flex",
           alignItems: "center",
-          gap: "0.28rem",
+          justifyContent: "center",
+          gap: "0.22rem",
+          minWidth: 0,
           border: "1px solid rgba(20, 184, 166, 0.24)",
           borderRadius: "999px",
           background:
             "linear-gradient(135deg, rgba(240, 253, 250, 0.95), rgba(239, 246, 255, 0.95))",
           color: "#0f172a",
-          padding: "0.24rem 0.48rem",
-          fontSize: "0.68rem",
+          padding: "0.2rem 0.38rem",
+          fontSize: "0.62rem",
           fontWeight: 800,
+          whiteSpace: "nowrap",
+          overflow: "hidden",
         },
         tabs: {
           position: "relative",
@@ -1932,21 +1937,49 @@ export default function DashboardHomePage() {
             </div>
 
             <form className="profile-edit-form" onSubmit={handleProfileSave}>
-              <div className="profile-edit-preview" aria-hidden="true">
-                <div className="profile-edit-preview-cover">
+              <div className="profile-edit-preview">
+                <label className="profile-edit-preview-cover profile-image-picker">
                   {profileForm.coverUrl && (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={profileForm.coverUrl} alt="" />
                   )}
-                </div>
-                <div className="profile-edit-preview-avatar">
+                  <span className="profile-image-picker-label">Change cover</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    aria-label="Change cover photo"
+                    onChange={(event) => {
+                      void handleProfileImageChange(
+                        "coverUrl",
+                        event.target.files?.[0]
+                      );
+                      event.target.value = "";
+                    }}
+                  />
+                </label>
+                <label className="profile-edit-preview-avatar profile-image-picker">
                   {profileForm.avatarUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={profileForm.avatarUrl} alt="" />
                   ) : (
                     getInitials(profileForm.displayName || profileForm.username)
                   )}
-                </div>
+                  <span className="profile-image-picker-label profile-image-picker-label-round">
+                    Change
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    aria-label="Change profile photo"
+                    onChange={(event) => {
+                      void handleProfileImageChange(
+                        "avatarUrl",
+                        event.target.files?.[0]
+                      );
+                      event.target.value = "";
+                    }}
+                  />
+                </label>
               </div>
 
               <div className="profile-edit-grid">
@@ -1990,59 +2023,25 @@ export default function DashboardHomePage() {
                   />
                 </label>
 
-                <div className="profile-edit-field">
-                  <span>Profile photo</span>
-                  <div className="profile-file-row">
-                    <label className="profile-file-control">
-                      Upload
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(event) => {
-                          void handleProfileImageChange(
-                            "avatarUrl",
-                            event.target.files?.[0]
-                          );
-                          event.target.value = "";
-                        }}
-                      />
-                    </label>
+                <div className="profile-edit-field profile-edit-field-wide">
+                  <span>Images</span>
+                  <div className="profile-image-actions">
                     {profileForm.avatarUrl && (
                       <button
                         type="button"
                         className="profile-file-remove"
                         onClick={() => handleClearProfileImage("avatarUrl")}
                       >
-                        Remove
+                        Remove profile photo
                       </button>
                     )}
-                  </div>
-                </div>
-
-                <div className="profile-edit-field">
-                  <span>Cover photo</span>
-                  <div className="profile-file-row">
-                    <label className="profile-file-control">
-                      Upload
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(event) => {
-                          void handleProfileImageChange(
-                            "coverUrl",
-                            event.target.files?.[0]
-                          );
-                          event.target.value = "";
-                        }}
-                      />
-                    </label>
                     {profileForm.coverUrl && (
                       <button
                         type="button"
                         className="profile-file-remove"
                         onClick={() => handleClearProfileImage("coverUrl")}
                       >
-                        Remove
+                        Remove cover
                       </button>
                     )}
                   </div>
