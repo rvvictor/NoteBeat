@@ -9,6 +9,7 @@ import {
   ApiError,
   chatWithAI,
   createNote,
+  getFeedNotes,
   getCurrentUser,
   getEmotionDashboard,
   getNoteInteractions,
@@ -20,6 +21,7 @@ import {
   searchSpotify,
   updateNoteInteraction,
   updateCurrentUser,
+  updateUserFollow,
 } from "@/lib/api";
 import { UserProfile } from "@/lib/auth";
 import {
@@ -51,6 +53,18 @@ const getNoteTime = (note: NoteItem) => {
   const time = date.getTime();
   return Number.isNaN(time) ? 0 : time;
 };
+
+const prioritizeFeedPosts = (items: NoteItem[]) =>
+  [...items].sort((a, b) => {
+    const aFollowed = a.author?.is_followed ? 0 : 1;
+    const bFollowed = b.author?.is_followed ? 0 : 1;
+
+    if (aFollowed !== bFollowed) {
+      return aFollowed - bFollowed;
+    }
+
+    return getNoteTime(b) - getNoteTime(a);
+  });
 
 const formatNoteDate = (value: string) => {
   const date = new Date(value);
@@ -381,6 +395,9 @@ export default function DashboardHomePage() {
   const [notes, setNotes] = useState<NoteItem[]>([]);
   const [notesError, setNotesError] = useState<string | null>(null);
   const [notesLoading, setNotesLoading] = useState(true);
+  const [publicFeedNotes, setPublicFeedNotes] = useState<NoteItem[]>([]);
+  const [publicFeedError, setPublicFeedError] = useState<string | null>(null);
+  const [publicFeedLoading, setPublicFeedLoading] = useState(true);
   const [noteInteractions, setNoteInteractions] = useState<NoteInteraction[]>([]);
   const [interactionError, setInteractionError] = useState<string | null>(null);
 
@@ -462,6 +479,21 @@ export default function DashboardHomePage() {
         setNotesError(message);
       })
       .finally(() => setNotesLoading(false));
+  }, [router]);
+
+  useEffect(() => {
+    getFeedNotes()
+      .then((items) => setPublicFeedNotes(prioritizeFeedPosts(items)))
+      .catch((err) => {
+        if (err instanceof ApiError && err.status === 401) {
+          router.push("/login");
+          return;
+        }
+        setPublicFeedError(
+          getApiErrorMessage(err, "We couldn't load the community feed.")
+        );
+      })
+      .finally(() => setPublicFeedLoading(false));
   }, [router]);
 
   useEffect(() => {
@@ -685,7 +717,7 @@ export default function DashboardHomePage() {
   const profileBio = currentUser?.bio?.trim() || DEFAULT_PROFILE_BIO;
   const profileAvatarUrl = currentUser?.avatar_url?.trim() ?? "";
   const profileCoverUrl = currentUser?.cover_url?.trim() ?? "";
-  const feedNotes = useMemo(
+  const ownPostNotes = useMemo(
     () => sortedNotes.filter((note) => isQuickNote(note)).slice(0, 8),
     [sortedNotes]
   );
@@ -710,26 +742,38 @@ export default function DashboardHomePage() {
     [interactionMap]
   );
   const repostedNotes = useMemo(
-    () => feedNotes.filter((note) => hasNoteInteraction(note.id, "repost")),
-    [feedNotes, hasNoteInteraction]
+    () =>
+      noteInteractions
+        .filter((interaction) => interaction.active && interaction.kind === "repost")
+        .map((interaction) => interaction.note)
+        .filter((note): note is NoteItem => Boolean(note)),
+    [noteInteractions]
   );
   const likedNotes = useMemo(
-    () => feedNotes.filter((note) => hasNoteInteraction(note.id, "like")),
-    [feedNotes, hasNoteInteraction]
+    () =>
+      noteInteractions
+        .filter((interaction) => interaction.active && interaction.kind === "like")
+        .map((interaction) => interaction.note)
+        .filter((note): note is NoteItem => Boolean(note)),
+    [noteInteractions]
   );
   const savedNotes = useMemo(
-    () => feedNotes.filter((note) => hasNoteInteraction(note.id, "save")),
-    [feedNotes, hasNoteInteraction]
+    () =>
+      noteInteractions
+        .filter((interaction) => interaction.active && interaction.kind === "save")
+        .map((interaction) => interaction.note)
+        .filter((note): note is NoteItem => Boolean(note)),
+    [noteInteractions]
   );
   const profileSongPosts = useMemo(
-    () => feedNotes.filter((note) => note.song).length,
-    [feedNotes]
+    () => ownPostNotes.filter((note) => note.song).length,
+    [ownPostNotes]
   );
-  const profilePostCountLabel = `${feedNotes.length} ${
-    feedNotes.length === 1 ? "post" : "posts"
+  const profilePostCountLabel = `${ownPostNotes.length} ${
+    ownPostNotes.length === 1 ? "post" : "posts"
   }`;
   const profileTabItems: { id: ProfileTab; label: string; notes: NoteItem[] }[] = [
-    { id: "posts", label: "Posts", notes: feedNotes },
+    { id: "posts", label: "Posts", notes: ownPostNotes },
     { id: "reposts", label: "Reposts", notes: repostedNotes },
     { id: "likes", label: "Likes", notes: likedNotes },
     { id: "saved", label: "Saved", notes: savedNotes },
@@ -1327,14 +1371,14 @@ export default function DashboardHomePage() {
   };
 
   const setLocalInteraction = (
-    noteId: string,
+    note: NoteItem,
     kind: NoteInteractionKind,
     active: boolean
   ) => {
     setNoteInteractions((prev) => {
       const next = prev.filter(
         (interaction) =>
-          !(interaction.note_id === noteId && interaction.kind === kind)
+          !(interaction.note_id === note.id && interaction.kind === kind)
       );
 
       if (!active) {
@@ -1344,10 +1388,11 @@ export default function DashboardHomePage() {
       return [
         ...next,
         {
-          note_id: noteId,
+          note_id: note.id,
           kind,
           active: true,
           created_at: new Date().toISOString(),
+          note,
         },
       ];
     });
@@ -1360,12 +1405,12 @@ export default function DashboardHomePage() {
     const nextActive = !hasNoteInteraction(note.id, kind);
     const previousInteractions = noteInteractions;
 
-    setLocalInteraction(note.id, kind, nextActive);
+    setLocalInteraction(note, kind, nextActive);
     setInteractionError(null);
 
     try {
       const updated = await updateNoteInteraction(note.id, kind, nextActive);
-      setLocalInteraction(note.id, kind, updated.active);
+      setLocalInteraction(updated.note ?? note, kind, updated.active);
     } catch (err) {
       setNoteInteractions(previousInteractions);
       if (err instanceof ApiError && err.status === 401) {
@@ -1375,6 +1420,67 @@ export default function DashboardHomePage() {
       setInteractionError(
         getApiErrorMessage(err, "We couldn't update that action.")
       );
+    }
+  };
+
+  const applyAuthorFollowState = (userId: string, active: boolean) => {
+    const updateNote = (note: NoteItem): NoteItem => {
+      if (note.author?.id !== userId) {
+        return note;
+      }
+
+      return {
+        ...note,
+        author: {
+          ...note.author,
+          is_followed: active,
+        },
+      };
+    };
+
+    setPublicFeedNotes((prev) => prioritizeFeedPosts(prev.map(updateNote)));
+    setNoteInteractions((prev) =>
+      prev.map((interaction) => ({
+        ...interaction,
+        note: interaction.note ? updateNote(interaction.note) : interaction.note,
+      }))
+    );
+  };
+
+  const handleToggleFollow = async (userId: string, active: boolean) => {
+    const nextActive = !active;
+    const previousFeed = publicFeedNotes;
+    const previousInteractions = noteInteractions;
+    const previousCurrentUser = currentUser;
+
+    applyAuthorFollowState(userId, nextActive);
+    setCurrentUser((prev) =>
+      prev
+        ? {
+            ...prev,
+            following_count: Math.max(
+              0,
+              prev.following_count + (nextActive ? 1 : -1)
+            ),
+          }
+        : prev
+    );
+    setInteractionError(null);
+
+    try {
+      const response = await updateUserFollow(userId, nextActive);
+      applyAuthorFollowState(userId, response.active);
+    } catch (err) {
+      setPublicFeedNotes(previousFeed);
+      setNoteInteractions(previousInteractions);
+      setCurrentUser(previousCurrentUser);
+
+      if (err instanceof ApiError && err.status === 401) {
+        router.push("/login");
+        return;
+      }
+
+      setInteractionError(getApiErrorMessage(err, "We couldn't update follow."));
     }
   };
 
@@ -1605,6 +1711,17 @@ export default function DashboardHomePage() {
     const isLiked = hasNoteInteraction(note.id, "like");
     const isSaved = hasNoteInteraction(note.id, "save");
     const isReposted = hasNoteInteraction(note.id, "repost");
+    const isOwnPost = note.user_id === currentUser?.id || !note.author;
+    const authorName =
+      note.author?.display_name?.trim() ||
+      note.author?.username ||
+      profileName;
+    const authorHandle = note.author?.username
+      ? `@${note.author.username}`
+      : profileHandle;
+    const authorAvatarUrl = note.author?.avatar_url?.trim() || profileAvatarUrl;
+    const authorInitials = getInitials(authorName);
+    const isFollowingAuthor = note.author?.is_followed ?? false;
 
     return (
       <article
@@ -1615,14 +1732,32 @@ export default function DashboardHomePage() {
       >
         <header className="feed-post-header">
           <div className="feed-post-avatar" aria-hidden="true">
-            {profileInitials}
+            {authorAvatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={authorAvatarUrl} alt="" />
+            ) : (
+              authorInitials
+            )}
           </div>
           <div className="feed-post-user">
-            <p className="feed-post-name">{profileName}</p>
+            <p className="feed-post-name">{authorName}</p>
             <p className="feed-post-meta">
-              {profileHandle} - {getNoteDateLabel(note)}
+              {authorHandle} - {getNoteDateLabel(note)}
             </p>
           </div>
+          {!isOwnPost && note.author && (
+            <button
+              type="button"
+              className={`feed-follow-button${
+                isFollowingAuthor ? " following" : ""
+              }`}
+              onClick={() =>
+                void handleToggleFollow(note.author!.id, isFollowingAuthor)
+              }
+            >
+              {isFollowingAuthor ? "Following" : "Follow"}
+            </button>
+          )}
         </header>
 
         {body && <p className="feed-post-body">{body}</p>}
@@ -1856,25 +1991,25 @@ export default function DashboardHomePage() {
               <div className="home-feed-header">
                 <div>
                   <p className="home-panel-kicker">Feed</p>
-                  <h2 className="home-feed-title">Recent pulses</h2>
+                  <h2 className="home-feed-title">Community pulses</h2>
                 </div>
               </div>
 
-              {notesLoading && (
+              {publicFeedLoading && (
                 <div className="home-feed-empty">Loading posts...</div>
               )}
 
-              {!notesLoading && notesError && (
-                <div className="home-error">{notesError}</div>
+              {!publicFeedLoading && publicFeedError && (
+                <div className="home-error">{publicFeedError}</div>
               )}
 
-              {!notesLoading && !notesError && feedNotes.length === 0 && (
-                <div className="home-feed-empty">No posts yet.</div>
+              {!publicFeedLoading && !publicFeedError && publicFeedNotes.length === 0 && (
+                <div className="home-feed-empty">No community posts yet.</div>
               )}
 
-              {!notesLoading && !notesError && feedNotes.length > 0 && (
+              {!publicFeedLoading && !publicFeedError && publicFeedNotes.length > 0 && (
                 <div className="home-feed-list">
-                  {feedNotes.map((note) => renderPostCard(note, "feed"))}
+                  {publicFeedNotes.map((note) => renderPostCard(note, "feed"))}
                 </div>
               )}
             </section>
@@ -2005,10 +2140,13 @@ export default function DashboardHomePage() {
                 </p>
                 <div className="profile-stats" style={profileInlineStyles.stats}>
                   <span>
-                    <strong>{feedNotes.length}</strong> Posts
+                    <strong>{ownPostNotes.length}</strong> Posts
                   </span>
                   <span>
-                    <strong>{likedNotes.length}</strong> Likes
+                    <strong>{currentUser?.follower_count ?? 0}</strong> Followers
+                  </span>
+                  <span>
+                    <strong>{currentUser?.following_count ?? 0}</strong> Following
                   </span>
                 </div>
                 <div

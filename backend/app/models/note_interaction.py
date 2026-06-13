@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime
 from sqlalchemy import Column, DateTime, ForeignKey, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
 from app.db.database import Base
 
 
@@ -16,3 +17,4 @@ class NoteInteraction(Base):
     note_id = Column(UUID(as_uuid=True), ForeignKey("notes.id"), nullable=False)
     kind = Column(String(20), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+    note = relationship("Note")

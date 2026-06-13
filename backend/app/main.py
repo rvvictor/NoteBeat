@@ -8,9 +8,11 @@ from app.models import note
 from app.routes import notes
 from app.models import song
 from app.models import note_interaction
+from app.models import user_follow
 from app.routes import ai
 from app.routes import spotify
 from app.models import note_emotions
+from app.routes import users
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
@@ -38,6 +40,7 @@ app.add_middleware(
 
 app.include_router(auth.router, prefix="/auth")
 app.include_router(notes.router, prefix="/notes", tags=["Notes"])
+app.include_router(users.router, prefix="/users", tags=["Users"])
 app.include_router(ai.router, prefix="/ai", tags=["AI"])
 app.include_router(spotify.router, prefix="/spotify", tags=["Spotify"])
 app.include_router(spotify.callback_router, tags=["Spotify"])

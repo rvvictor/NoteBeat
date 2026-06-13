@@ -5,6 +5,14 @@ from uuid import UUID
 from app.schemas.note_emotions import NoteEmotionBase
 from app.schemas.song import SongCreate, SongResponse
 
+
+class NoteAuthor(BaseModel):
+    id: UUID
+    username: str
+    display_name: str | None = None
+    avatar_url: str | None = None
+    is_followed: bool = False
+
 class NoteBase(BaseModel):
     title: str
     content: str
@@ -27,6 +35,7 @@ class NoteResponse(NoteBase):
     updated_at: datetime
     emotions: List[NoteEmotionBase] = []
     song: Optional[SongResponse] = None
+    author: Optional[NoteAuthor] = None
 
     class Config:
         from_attributes = True

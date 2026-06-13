@@ -15,6 +15,7 @@ class Note(Base):
     song_id = Column(UUID(as_uuid=True), ForeignKey("songs.id"), nullable=True)
 
     song = relationship("Song", back_populates="notes")
+    user = relationship("User")
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

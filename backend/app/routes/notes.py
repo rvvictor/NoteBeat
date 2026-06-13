@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException
 from typing import List
 from uuid import UUID
+from sqlalchemy import case
 from sqlalchemy.orm import Session, joinedload
 from app.db.deps import get_db
-from app.schemas.note import NoteCreate, NoteResponse, NoteUpdate
+from app.schemas.note import NoteAuthor, NoteCreate, NoteResponse, NoteUpdate
 from app.schemas.note_interaction import (
     NoteInteractionResponse,
     NoteInteractionUpdate,
@@ -11,6 +12,7 @@ from app.schemas.note_interaction import (
 from app.models.note import Note
 from app.models.note_interaction import NoteInteraction
 from app.models.song import Song
+from app.models.user_follow import UserFollow
 from app.models.note_emotions import NoteEmotion
 from app.services.ai.emotions import analyze_and_store_emotions_for_note
 from app.services.deps import get_current_user
@@ -19,6 +21,45 @@ router = APIRouter()
 QUICK_NOTE_TITLE = "__notebeat_quick_note__"
 INTERACTION_KINDS = {"like", "save", "repost"}
 
+
+def get_following_ids(db: Session, user_id: UUID) -> set[UUID]:
+    rows = (
+        db.query(UserFollow.following_id)
+        .filter(UserFollow.follower_id == user_id)
+        .all()
+    )
+    return {row[0] for row in rows}
+
+
+def build_note_author(note: Note, following_ids: set[UUID]) -> NoteAuthor | None:
+    if note.user is None:
+        return None
+
+    return NoteAuthor(
+        id=note.user.id,
+        username=note.user.username,
+        display_name=note.user.display_name,
+        avatar_url=note.user.avatar_url,
+        is_followed=note.user.id in following_ids,
+    )
+
+
+def build_note_response(
+    note: Note,
+    following_ids: set[UUID] | None = None,
+) -> NoteResponse:
+    return NoteResponse(
+        id=note.id,
+        title=note.title,
+        content=note.content,
+        song_id=note.song_id,
+        user_id=note.user_id,
+        created_at=note.created_at,
+        updated_at=note.updated_at,
+        song=note.song,
+        author=build_note_author(note, following_ids or set()),
+    )
+
 @router.get("/", response_model=List[NoteResponse])
 def list_notes(
     db: Session = Depends(get_db),
@@ -26,7 +67,7 @@ def list_notes(
 ):
     notes = (
         db.query(Note)
-        .options(joinedload(Note.song))
+        .options(joinedload(Note.song), joinedload(Note.user))
         .filter(Note.user_id == current_user.id)
         .order_by(Note.created_at.desc())
         .all()
@@ -35,13 +76,44 @@ def list_notes(
     return notes
 
 
+@router.get("/feed", response_model=List[NoteResponse])
+def list_feed_notes(
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    following_ids = get_following_ids(db, current_user.id)
+
+    query = (
+        db.query(Note)
+        .options(joinedload(Note.song), joinedload(Note.user))
+        .filter(Note.title == QUICK_NOTE_TITLE, Note.user_id != current_user.id)
+    )
+
+    if following_ids:
+        query = query.order_by(
+            case((Note.user_id.in_(list(following_ids)), 0), else_=1),
+            Note.created_at.desc(),
+        )
+    else:
+        query = query.order_by(Note.created_at.desc())
+
+    notes = query.limit(80).all()
+
+    return [build_note_response(note, following_ids) for note in notes]
+
+
 @router.get("/interactions", response_model=List[NoteInteractionResponse])
 def list_note_interactions(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
+    following_ids = get_following_ids(db, current_user.id)
     interactions = (
         db.query(NoteInteraction)
+        .options(
+            joinedload(NoteInteraction.note).joinedload(Note.song),
+            joinedload(NoteInteraction.note).joinedload(Note.user),
+        )
         .filter(NoteInteraction.user_id == current_user.id)
         .all()
     )
@@ -52,6 +124,9 @@ def list_note_interactions(
             kind=interaction.kind,
             active=True,
             created_at=interaction.created_at,
+            note=build_note_response(interaction.note, following_ids)
+            if interaction.note is not None
+            else None,
         )
         for interaction in interactions
     ]
@@ -70,6 +145,7 @@ def update_note_interaction(
 
     note = (
         db.query(Note)
+        .options(joinedload(Note.song), joinedload(Note.user))
         .filter(Note.id == note_id, Note.title == QUICK_NOTE_TITLE)
         .first()
     )
@@ -103,13 +179,19 @@ def update_note_interaction(
             kind=interaction.kind,
             active=True,
             created_at=interaction.created_at,
+            note=build_note_response(note, get_following_ids(db, current_user.id)),
         )
 
     if interaction is not None:
         db.delete(interaction)
         db.commit()
 
-    return NoteInteractionResponse(note_id=note_id, kind=kind, active=False)
+    return NoteInteractionResponse(
+        note_id=note_id,
+        kind=kind,
+        active=False,
+        note=build_note_response(note, get_following_ids(db, current_user.id)),
+    )
 
 
 @router.get("/{note_id}", response_model=NoteResponse)

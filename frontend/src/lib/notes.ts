@@ -34,6 +34,13 @@ export interface NoteItem {
   song_id?: string | null;
   song?: SongPayload | null;
   user_id: string;
+  author?: {
+    id: string;
+    username: string;
+    display_name?: string | null;
+    avatar_url?: string | null;
+    is_followed?: boolean;
+  } | null;
   created_at: string;
   updated_at: string;
 }
@@ -45,4 +52,5 @@ export interface NoteInteraction {
   kind: NoteInteractionKind;
   active: boolean;
   created_at?: string | null;
+  note?: NoteItem | null;
 }

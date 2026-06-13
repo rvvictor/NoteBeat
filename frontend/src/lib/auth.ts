@@ -17,6 +17,8 @@ export interface UserProfile {
   bio: string | null;
   avatar_url: string | null;
   cover_url: string | null;
+  follower_count: number;
+  following_count: number;
 }
 
 export interface ProfileUpdateRequest {
@@ -25,4 +27,10 @@ export interface ProfileUpdateRequest {
   bio?: string | null;
   avatar_url?: string | null;
   cover_url?: string | null;
+}
+
+export interface UserFollowState {
+  user_id: string;
+  active: boolean;
+  follower_count: number;
 }

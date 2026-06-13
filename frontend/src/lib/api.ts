@@ -4,6 +4,7 @@ import {
   LoginRequest,
   ProfileUpdateRequest,
   RegisterRequest,
+  UserFollowState,
   UserProfile,
 } from "@/lib/auth";
 import {
@@ -185,6 +186,20 @@ export async function getNotes(): Promise<NoteItem[]> {
   return res.json();
 }
 
+export async function getFeedNotes(): Promise<NoteItem[]> {
+  const res = await fetch(`${API_BASE}/notes/feed`, {
+    credentials: "include",
+    cache: "no-store",
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new ApiError(res.status, text);
+  }
+
+  return res.json();
+}
+
 export async function getNoteInteractions(): Promise<NoteInteraction[]> {
   const res = await fetch(`${API_BASE}/notes/interactions`, {
     credentials: "include",
@@ -205,6 +220,27 @@ export async function updateNoteInteraction(
   active: boolean
 ): Promise<NoteInteraction> {
   const res = await fetch(`${API_BASE}/notes/${noteId}/interactions/${kind}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ active }),
+    credentials: "include",
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new ApiError(res.status, text);
+  }
+
+  return res.json();
+}
+
+export async function updateUserFollow(
+  userId: string,
+  active: boolean
+): Promise<UserFollowState> {
+  const res = await fetch(`${API_BASE}/users/${userId}/follow`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",

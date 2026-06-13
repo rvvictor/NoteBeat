@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
 from app.schemas.user import UserCreate, UserLogin, UserOut, UserUpdate
 from app.models.user import User
+from app.models.user_follow import UserFollow
 from app.db.deps import get_db
 from app.services.auth import hash_password, verify_password
 from app.services.jwt import create_access_token
@@ -72,9 +73,30 @@ def logout(response: Response):
     response.delete_cookie(key=COOKIE_NAME)
     return {"message": "Logged out"}
 
+
+def build_user_out(user: User, db: Session) -> UserOut:
+    follower_count = (
+        db.query(UserFollow).filter(UserFollow.following_id == user.id).count()
+    )
+    following_count = (
+        db.query(UserFollow).filter(UserFollow.follower_id == user.id).count()
+    )
+
+    return UserOut(
+        id=user.id,
+        email=user.email,
+        username=user.username,
+        display_name=user.display_name,
+        bio=user.bio,
+        avatar_url=user.avatar_url,
+        cover_url=user.cover_url,
+        follower_count=follower_count,
+        following_count=following_count,
+    )
+
 @router.get("/me", response_model=UserOut)
-def get_me(user=Depends(get_current_user)):
-    return user
+def get_me(db: Session = Depends(get_db), user=Depends(get_current_user)):
+    return build_user_out(user, db)
 
 
 @router.put("/me", response_model=UserOut)
@@ -108,4 +130,4 @@ def update_me(
     db.commit()
     db.refresh(user)
 
-    return user
+    return build_user_out(user, db)

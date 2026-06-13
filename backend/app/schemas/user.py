@@ -75,6 +75,8 @@ class UserOut(UserBase):
     bio: str | None = None
     avatar_url: str | None = None
     cover_url: str | None = None
+    follower_count: int = 0
+    following_count: int = 0
 
     class Config:
         from_attributes = True

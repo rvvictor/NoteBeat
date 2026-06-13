@@ -1,6 +1,7 @@
 from datetime import datetime
 from pydantic import BaseModel
 from uuid import UUID
+from app.schemas.note import NoteResponse
 
 
 class NoteInteractionUpdate(BaseModel):
@@ -12,6 +13,7 @@ class NoteInteractionResponse(BaseModel):
     kind: str
     active: bool
     created_at: datetime | None = None
+    note: NoteResponse | None = None
 
     class Config:
         from_attributes = True
