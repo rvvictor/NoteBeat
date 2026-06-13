@@ -1,7 +1,7 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -11,16 +11,25 @@ import {
   createNote,
   getCurrentUser,
   getEmotionDashboard,
+  getNoteInteractions,
   getNotes,
   getRecap,
   getSpotifyRecommendations,
   getSpotifyStatus,
   logout,
   searchSpotify,
+  updateNoteInteraction,
   updateCurrentUser,
 } from "@/lib/api";
 import { UserProfile } from "@/lib/auth";
-import { isQuickNote, NoteItem, QUICK_NOTE_TITLE, SpotifyTrack } from "@/lib/notes";
+import {
+  isQuickNote,
+  NoteInteraction,
+  NoteInteractionKind,
+  NoteItem,
+  QUICK_NOTE_TITLE,
+  SpotifyTrack,
+} from "@/lib/notes";
 import { EmotionDashboard } from "@/lib/emotions";
 import { RecapDashboard, RecapRange } from "@/lib/recap";
 import NoteComposer from "@/components/NoteComposer";
@@ -78,7 +87,7 @@ type ChatMessage = {
 };
 
 type CenterPanelView = "feed" | "profile";
-type ProfileTab = "posts" | "likes";
+type ProfileTab = "posts" | "reposts" | "likes" | "saved";
 
 type ProfileFormState = {
   displayName: string;
@@ -372,6 +381,8 @@ export default function DashboardHomePage() {
   const [notes, setNotes] = useState<NoteItem[]>([]);
   const [notesError, setNotesError] = useState<string | null>(null);
   const [notesLoading, setNotesLoading] = useState(true);
+  const [noteInteractions, setNoteInteractions] = useState<NoteInteraction[]>([]);
+  const [interactionError, setInteractionError] = useState<string | null>(null);
 
   const [stats, setStats] = useState<EmotionDashboard | null>(null);
   const [statsError, setStatsError] = useState<string | null>(null);
@@ -465,6 +476,20 @@ export default function DashboardHomePage() {
         setStatsError(message);
       })
       .finally(() => setStatsLoading(false));
+  }, [router]);
+
+  useEffect(() => {
+    getNoteInteractions()
+      .then(setNoteInteractions)
+      .catch((err) => {
+        if (err instanceof ApiError && err.status === 401) {
+          router.push("/login");
+          return;
+        }
+        setInteractionError(
+          getApiErrorMessage(err, "We couldn't load post actions.")
+        );
+      });
   }, [router]);
 
   useEffect(() => {
@@ -664,7 +689,38 @@ export default function DashboardHomePage() {
     () => sortedNotes.filter((note) => isQuickNote(note)).slice(0, 8),
     [sortedNotes]
   );
-  const likedNotes = useMemo<NoteItem[]>(() => [], []);
+  const interactionMap = useMemo(() => {
+    const map = new Map<string, Set<NoteInteractionKind>>();
+
+    noteInteractions.forEach((interaction) => {
+      if (!interaction.active) {
+        return;
+      }
+
+      const noteKinds = map.get(interaction.note_id) ?? new Set<NoteInteractionKind>();
+      noteKinds.add(interaction.kind);
+      map.set(interaction.note_id, noteKinds);
+    });
+
+    return map;
+  }, [noteInteractions]);
+  const hasNoteInteraction = useCallback(
+    (noteId: string, kind: NoteInteractionKind) =>
+      interactionMap.get(noteId)?.has(kind) ?? false,
+    [interactionMap]
+  );
+  const repostedNotes = useMemo(
+    () => feedNotes.filter((note) => hasNoteInteraction(note.id, "repost")),
+    [feedNotes, hasNoteInteraction]
+  );
+  const likedNotes = useMemo(
+    () => feedNotes.filter((note) => hasNoteInteraction(note.id, "like")),
+    [feedNotes, hasNoteInteraction]
+  );
+  const savedNotes = useMemo(
+    () => feedNotes.filter((note) => hasNoteInteraction(note.id, "save")),
+    [feedNotes, hasNoteInteraction]
+  );
   const profileSongPosts = useMemo(
     () => feedNotes.filter((note) => note.song).length,
     [feedNotes]
@@ -672,6 +728,14 @@ export default function DashboardHomePage() {
   const profilePostCountLabel = `${feedNotes.length} ${
     feedNotes.length === 1 ? "post" : "posts"
   }`;
+  const profileTabItems: { id: ProfileTab; label: string; notes: NoteItem[] }[] = [
+    { id: "posts", label: "Posts", notes: feedNotes },
+    { id: "reposts", label: "Reposts", notes: repostedNotes },
+    { id: "likes", label: "Likes", notes: likedNotes },
+    { id: "saved", label: "Saved", notes: savedNotes },
+  ];
+  const activeProfileTab =
+    profileTabItems.find((item) => item.id === profileTab) ?? profileTabItems[0];
   const profileSignalPills = useMemo(
     () => [
       {
@@ -939,7 +1003,7 @@ export default function DashboardHomePage() {
           position: "relative",
           zIndex: 2,
           display: "grid",
-          gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+          gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
           borderRight: "1px solid rgba(203, 213, 225, 0.8)",
           borderLeft: "1px solid rgba(203, 213, 225, 0.8)",
           borderBottom: "1px solid rgba(203, 213, 225, 0.82)",
@@ -951,9 +1015,9 @@ export default function DashboardHomePage() {
           background: "transparent",
           color: "#64748b",
           cursor: "pointer",
-          fontSize: "0.85rem",
+          fontSize: "0.8rem",
           fontWeight: 800,
-          padding: "0.85rem 0.7rem",
+          padding: "0.85rem 0.45rem",
         },
         activeTab: {
           color: "#111827",
@@ -1262,6 +1326,83 @@ export default function DashboardHomePage() {
     setRecapRefreshKey((prev) => prev + 1);
   };
 
+  const setLocalInteraction = (
+    noteId: string,
+    kind: NoteInteractionKind,
+    active: boolean
+  ) => {
+    setNoteInteractions((prev) => {
+      const next = prev.filter(
+        (interaction) =>
+          !(interaction.note_id === noteId && interaction.kind === kind)
+      );
+
+      if (!active) {
+        return next;
+      }
+
+      return [
+        ...next,
+        {
+          note_id: noteId,
+          kind,
+          active: true,
+          created_at: new Date().toISOString(),
+        },
+      ];
+    });
+  };
+
+  const handleToggleInteraction = async (
+    note: NoteItem,
+    kind: NoteInteractionKind
+  ) => {
+    const nextActive = !hasNoteInteraction(note.id, kind);
+    const previousInteractions = noteInteractions;
+
+    setLocalInteraction(note.id, kind, nextActive);
+    setInteractionError(null);
+
+    try {
+      const updated = await updateNoteInteraction(note.id, kind, nextActive);
+      setLocalInteraction(note.id, kind, updated.active);
+    } catch (err) {
+      setNoteInteractions(previousInteractions);
+      if (err instanceof ApiError && err.status === 401) {
+        router.push("/login");
+        return;
+      }
+      setInteractionError(
+        getApiErrorMessage(err, "We couldn't update that action.")
+      );
+    }
+  };
+
+  const handleSharePost = async (note: NoteItem) => {
+    const shareUrl = `${window.location.origin}/dashboard?post=${note.id}`;
+    const body = note.content?.trim();
+    const song = note.song
+      ? `${note.song.title} - ${note.song.artist}`
+      : "NoteBeat post";
+    const text = body || song;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: "NoteBeat",
+          text,
+          url: shareUrl,
+        });
+        return;
+      }
+
+      await navigator.clipboard.writeText(shareUrl);
+      setQuickStatus("Post link copied.");
+    } catch {
+      setInteractionError("We couldn't share that post.");
+    }
+  };
+
   const handleRecapRangeChange = (range: RecapRange) => {
     if (range === recapRange) {
       return;
@@ -1461,6 +1602,9 @@ export default function DashboardHomePage() {
     const body = note.content?.trim() ?? "";
     const hasSong =
       Boolean(note.song?.title?.trim()) && Boolean(note.song?.artist?.trim());
+    const isLiked = hasNoteInteraction(note.id, "like");
+    const isSaved = hasNoteInteraction(note.id, "save");
+    const isReposted = hasNoteInteraction(note.id, "repost");
 
     return (
       <article
@@ -1479,15 +1623,6 @@ export default function DashboardHomePage() {
               {profileHandle} - {getNoteDateLabel(note)}
             </p>
           </div>
-          {variant === "feed" && (
-            <button
-              type="button"
-              className="feed-post-edit"
-              onClick={() => handleEditNoteClick(note)}
-            >
-              Edit
-            </button>
-          )}
         </header>
 
         {body && <p className="feed-post-body">{body}</p>}
@@ -1518,9 +1653,70 @@ export default function DashboardHomePage() {
         )}
 
         <footer className="feed-post-footer" aria-label="Post actions">
-          <span>Reflect</span>
-          <span>Save</span>
-          <span>Share</span>
+          <button
+            type="button"
+            className={`feed-post-action${isLiked ? " active like" : ""}`}
+            aria-pressed={isLiked}
+            onClick={() => void handleToggleInteraction(note, "like")}
+          >
+            <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+              <path
+                d="M10 16.2s-5.6-3.2-7.1-6.8C1.8 6.8 3.3 4.5 5.8 4.5c1.5 0 2.8.8 3.5 2 .7-1.2 2-2 3.5-2 2.5 0 4 2.3 2.9 4.9C15.6 13 10 16.2 10 16.2z"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinejoin="round"
+              />
+            </svg>
+            Like
+          </button>
+          <button
+            type="button"
+            className={`feed-post-action${isSaved ? " active save" : ""}`}
+            aria-pressed={isSaved}
+            onClick={() => void handleToggleInteraction(note, "save")}
+          >
+            <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+              <path
+                d="M6 4.2h8c.6 0 1 .4 1 1v11.1l-5-3-5 3V5.2c0-.6.4-1 1-1z"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinejoin="round"
+              />
+            </svg>
+            Save
+          </button>
+          <button
+            type="button"
+            className="feed-post-action"
+            onClick={() => void handleSharePost(note)}
+          >
+            <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+              <path
+                d="M7.8 11.1 12.3 13.7M12.2 6.3 7.8 8.9M6.4 12.2a2.2 2.2 0 1 1 0-4.4 2.2 2.2 0 0 1 0 4.4zM14.1 7.5a2.2 2.2 0 1 1 0-4.4 2.2 2.2 0 0 1 0 4.4zM14.1 16.9a2.2 2.2 0 1 1 0-4.4 2.2 2.2 0 0 1 0 4.4z"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              />
+            </svg>
+            Share
+          </button>
+          <button
+            type="button"
+            className={`feed-post-action${isReposted ? " active repost" : ""}`}
+            aria-pressed={isReposted}
+            onClick={() => void handleToggleInteraction(note, "repost")}
+          >
+            <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+              <path
+                d="M6.4 5.2h6.5c1.7 0 3 1.3 3 3v.7M8.1 3.4 6.3 5.2 8.1 7M13.6 14.8H7.1c-1.7 0-3-1.3-3-3v-.7M11.9 16.6l1.8-1.8-1.8-1.8"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            Repost
+          </button>
         </footer>
       </article>
     );
@@ -1837,54 +2033,50 @@ export default function DashboardHomePage() {
               style={profileInlineStyles.tabs}
               aria-label="Profile sections"
             >
-              <button
-                type="button"
-                className={`profile-tab${profileTab === "posts" ? " active" : ""}`}
-                style={{
-                  ...profileInlineStyles.tab,
-                  ...(profileTab === "posts" ? profileInlineStyles.activeTab : {}),
-                }}
-                onClick={() => setProfileTab("posts")}
-              >
-                Posts
-              </button>
-              <button
-                type="button"
-                className={`profile-tab${profileTab === "likes" ? " active" : ""}`}
-                style={{
-                  ...profileInlineStyles.tab,
-                  ...(profileTab === "likes" ? profileInlineStyles.activeTab : {}),
-                }}
-                onClick={() => setProfileTab("likes")}
-              >
-                Likes
-              </button>
+              {profileTabItems.map((item) => (
+                <button
+                  type="button"
+                  key={item.id}
+                  className={`profile-tab${profileTab === item.id ? " active" : ""}`}
+                  style={{
+                    ...profileInlineStyles.tab,
+                    ...(profileTab === item.id
+                      ? profileInlineStyles.activeTab
+                      : {}),
+                  }}
+                  onClick={() => setProfileTab(item.id)}
+                >
+                  {item.label}
+                </button>
+              ))}
             </nav>
 
             <div className="profile-posts" style={profileInlineStyles.posts}>
-              {profileTab === "posts" && notesLoading && (
+              {notesLoading && (
                 <div className="home-feed-empty">Loading posts...</div>
               )}
 
-              {profileTab === "posts" && !notesLoading && notesError && (
+              {!notesLoading && notesError && (
                 <div className="home-error">{notesError}</div>
               )}
 
-              {profileTab === "posts" &&
-                !notesLoading &&
+              {interactionError && (
+                <div className="home-error">{interactionError}</div>
+              )}
+
+              {!notesLoading &&
                 !notesError &&
-                feedNotes.length === 0 && (
-                  <div className="home-feed-empty">No posts yet.</div>
+                activeProfileTab.notes.length === 0 && (
+                  <div className="home-feed-empty">
+                    No {activeProfileTab.label.toLowerCase()} yet.
+                  </div>
                 )}
 
-              {profileTab === "posts" &&
-                !notesLoading &&
+              {!notesLoading &&
                 !notesError &&
-                feedNotes.map((note) => renderPostCard(note, "profile"))}
-
-              {profileTab === "likes" && likedNotes.length === 0 && (
-                <div className="home-feed-empty">No liked posts yet.</div>
-              )}
+                activeProfileTab.notes.map((note) =>
+                  renderPostCard(note, "profile")
+                )}
             </div>
           </section>
         )}

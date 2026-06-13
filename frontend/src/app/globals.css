@@ -1070,7 +1070,7 @@ a {
   position: relative;
   z-index: 2;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   border-right: 1px solid rgba(203, 213, 225, 0.8);
   border-left: 1px solid rgba(203, 213, 225, 0.8);
   border-bottom: 1px solid rgba(203, 213, 225, 0.82);
@@ -1083,9 +1083,9 @@ a {
   background: transparent;
   color: #64748b;
   cursor: pointer;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-weight: 850;
-  padding: 0.85rem 0.7rem;
+  padding: 0.85rem 0.45rem;
 }
 
 .profile-tab::after {
@@ -1608,13 +1608,56 @@ a {
 }
 
 .feed-post-footer {
-  display: flex;
-  gap: 0.9rem;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.35rem;
   border-top: 1px solid rgba(226, 232, 240, 0.82);
-  color: #64748b;
-  font-size: 0.75rem;
-  font-weight: 750;
   padding-top: 0.65rem;
+}
+
+.feed-post-action {
+  min-width: 0;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.28rem;
+  font-size: 0.72rem;
+  font-weight: 820;
+  padding: 0.38rem 0.32rem;
+  transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease;
+  white-space: nowrap;
+}
+
+.feed-post-action svg {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 15px;
+}
+
+.feed-post-action:hover {
+  background: rgba(226, 232, 240, 0.64);
+  color: #111827;
+  transform: translateY(-1px);
+}
+
+.feed-post-action.active.like {
+  background: rgba(244, 63, 94, 0.1);
+  color: #e11d48;
+}
+
+.feed-post-action.active.save {
+  background: rgba(37, 99, 235, 0.1);
+  color: #2563eb;
+}
+
+.feed-post-action.active.repost {
+  background: rgba(20, 184, 166, 0.12);
+  color: #0f766e;
 }
 
 .home-full-editor {

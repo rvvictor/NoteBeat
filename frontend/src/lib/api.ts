@@ -6,7 +6,13 @@ import {
   RegisterRequest,
   UserProfile,
 } from "@/lib/auth";
-import { NoteCreatePayload, NoteItem, SpotifyTrack } from "@/lib/notes";
+import {
+  NoteCreatePayload,
+  NoteInteraction,
+  NoteInteractionKind,
+  NoteItem,
+  SpotifyTrack,
+} from "@/lib/notes";
 import { RecapDashboard, RecapRange } from "@/lib/recap";
 
 const API_BASE =
@@ -169,6 +175,42 @@ export async function getNotes(): Promise<NoteItem[]> {
   const res = await fetch(`${API_BASE}/notes`, {
     credentials: "include",
     cache: "no-store",
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new ApiError(res.status, text);
+  }
+
+  return res.json();
+}
+
+export async function getNoteInteractions(): Promise<NoteInteraction[]> {
+  const res = await fetch(`${API_BASE}/notes/interactions`, {
+    credentials: "include",
+    cache: "no-store",
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new ApiError(res.status, text);
+  }
+
+  return res.json();
+}
+
+export async function updateNoteInteraction(
+  noteId: string,
+  kind: NoteInteractionKind,
+  active: boolean
+): Promise<NoteInteraction> {
+  const res = await fetch(`${API_BASE}/notes/${noteId}/interactions/${kind}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ active }),
+    credentials: "include",
   });
 
   if (!res.ok) {

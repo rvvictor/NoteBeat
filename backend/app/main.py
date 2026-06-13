@@ -7,6 +7,7 @@ from app.routes import auth
 from app.models import note
 from app.routes import notes
 from app.models import song
+from app.models import note_interaction
 from app.routes import ai
 from app.routes import spotify
 from app.models import note_emotions

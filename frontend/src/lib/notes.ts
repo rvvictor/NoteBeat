@@ -37,3 +37,12 @@ export interface NoteItem {
   created_at: string;
   updated_at: string;
 }
+
+export type NoteInteractionKind = "like" | "save" | "repost";
+
+export interface NoteInteraction {
+  note_id: string;
+  kind: NoteInteractionKind;
+  active: boolean;
+  created_at?: string | null;
+}
