@@ -75,6 +75,9 @@ type ChatMessage = {
   content: string;
 };
 
+type CenterPanelView = "feed" | "profile";
+type ProfileTab = "posts" | "likes";
+
 type MoodTheme = {
   background: string;
   border: string;
@@ -320,6 +323,10 @@ export default function DashboardHomePage() {
   const [quickError, setQuickError] = useState<string | null>(null);
   const [quickStatus, setQuickStatus] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [centerPanelView, setCenterPanelView] =
+    useState<CenterPanelView>("feed");
+  const [profileTab, setProfileTab] = useState<ProfileTab>("posts");
+  const [isQuickComposerOpen, setIsQuickComposerOpen] = useState(false);
   const [isFullEditorOpen, setIsFullEditorOpen] = useState(false);
   const [editingNote, setEditingNote] = useState<NoteItem | null>(null);
   const [visibleCount, setVisibleCount] = useState(7);
@@ -569,6 +576,10 @@ export default function DashboardHomePage() {
     () => sortedNotes.filter((note) => isQuickNote(note)).slice(0, 8),
     [sortedNotes]
   );
+  const likedNotes = useMemo<NoteItem[]>(() => [], []);
+  const profilePostCountLabel = `${feedNotes.length} ${
+    feedNotes.length === 1 ? "post" : "posts"
+  }`;
   const hasQuickSearch = quickSongQuery.trim().length >= 2;
   const quickPanelTracks = hasQuickSearch
     ? quickSpotifyResults
@@ -603,12 +614,232 @@ export default function DashboardHomePage() {
     [chatQuestion]
   );
 
+  const profileInlineStyles = useMemo(
+    () =>
+      ({
+        view: {
+          display: "grid",
+          gap: 0,
+          minHeight: "100%",
+          paddingBottom: "0.8rem",
+        },
+        topbar: {
+          position: "sticky",
+          top: "-1.4rem",
+          zIndex: 3,
+          display: "grid",
+          gridTemplateColumns: "auto minmax(0, 1fr) auto",
+          alignItems: "center",
+          gap: "0.8rem",
+          margin: "-1.4rem -0.4rem 0 -1.3rem",
+          padding: "0.8rem 0.95rem",
+          borderBottom: "1px solid rgba(226, 232, 240, 0.9)",
+          background: "rgba(248, 250, 252, 0.92)",
+          backdropFilter: "blur(16px)",
+        },
+        iconButton: {
+          width: "34px",
+          height: "34px",
+          borderRadius: "999px",
+          border: "1px solid rgba(148, 163, 184, 0.28)",
+          background: "#ffffff",
+          color: "#111827",
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          cursor: "pointer",
+        },
+        postButton: {
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: "0.35rem",
+          borderRadius: "999px",
+          border: "1px solid rgba(37, 99, 235, 0.38)",
+          background: "#2563eb",
+          color: "#ffffff",
+          padding: "0.52rem 0.84rem",
+          fontSize: "0.78rem",
+          fontWeight: 800,
+          cursor: "pointer",
+          boxShadow: "0 10px 20px rgba(37, 99, 235, 0.2)",
+        },
+        topbarName: {
+          color: "#111827",
+          fontSize: "0.98rem",
+          fontWeight: 800,
+          lineHeight: 1.15,
+        },
+        topbarCount: {
+          marginTop: "0.12rem",
+          color: "#64748b",
+          fontSize: "0.72rem",
+          fontWeight: 600,
+        },
+        hero: {
+          display: "grid",
+          gridTemplateRows: "132px auto minmax(116px, auto)",
+          minHeight: "300px",
+          position: "relative",
+          overflow: "hidden",
+          border: "1px solid rgba(203, 213, 225, 0.8)",
+          borderTop: "none",
+          background: "#ffffff",
+        },
+        cover: {
+          height: "132px",
+          background:
+            "linear-gradient(135deg, rgba(15, 23, 42, 0.78), rgba(20, 184, 166, 0.2)), linear-gradient(90deg, #172033, #334155 46%, #0f766e)",
+        },
+        identity: {
+          position: "relative",
+          zIndex: 1,
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+          gap: "1rem",
+          minHeight: "50px",
+          padding: "0 1rem",
+          background: "#ffffff",
+        },
+        avatar: {
+          width: "118px",
+          height: "118px",
+          marginTop: "-58px",
+          border: "5px solid #ffffff",
+          borderRadius: "999px",
+          background: "linear-gradient(135deg, #dbeafe, #ccfbf1)",
+          color: "#1d4ed8",
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: "1.55rem",
+          fontWeight: 900,
+          boxShadow: "0 14px 28px rgba(15, 23, 42, 0.14)",
+        },
+        editButton: {
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          marginTop: "0.9rem",
+          border: "1px solid rgba(15, 23, 42, 0.2)",
+          borderRadius: "999px",
+          background: "#ffffff",
+          color: "#111827",
+          padding: "0.55rem 0.9rem",
+          fontSize: "0.78rem",
+          fontWeight: 800,
+          cursor: "pointer",
+        },
+        copy: {
+          position: "relative",
+          zIndex: 1,
+          display: "grid",
+          alignContent: "start",
+          gap: "0.42rem",
+          minHeight: "116px",
+          padding: "0.15rem 1rem 1rem",
+          background: "#ffffff",
+        },
+        nameRow: {
+          display: "flex",
+          alignItems: "center",
+          gap: "0.45rem",
+          minWidth: 0,
+        },
+        name: {
+          color: "#111827",
+          fontSize: "1.25rem",
+          fontWeight: 900,
+          lineHeight: 1.12,
+          overflowWrap: "anywhere",
+        },
+        badge: {
+          border: "1px solid rgba(37, 99, 235, 0.22)",
+          borderRadius: "999px",
+          background: "rgba(37, 99, 235, 0.07)",
+          color: "#1d4ed8",
+          fontSize: "0.68rem",
+          fontWeight: 800,
+          padding: "0.18rem 0.45rem",
+          whiteSpace: "nowrap",
+        },
+        handle: {
+          color: "#64748b",
+          fontSize: "0.84rem",
+          lineHeight: 1.4,
+        },
+        bio: {
+          color: "#334155",
+          fontSize: "0.84rem",
+          lineHeight: 1.4,
+        },
+        stats: {
+          display: "flex",
+          flexWrap: "wrap",
+          gap: "0.9rem",
+          color: "#64748b",
+          marginTop: "0.1rem",
+          fontSize: "0.84rem",
+        },
+        tabs: {
+          position: "relative",
+          zIndex: 2,
+          display: "grid",
+          gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+          borderRight: "1px solid rgba(203, 213, 225, 0.8)",
+          borderLeft: "1px solid rgba(203, 213, 225, 0.8)",
+          borderBottom: "1px solid rgba(203, 213, 225, 0.82)",
+          background: "rgba(255, 255, 255, 0.82)",
+        },
+        tab: {
+          position: "relative",
+          border: "none",
+          background: "transparent",
+          color: "#64748b",
+          cursor: "pointer",
+          fontSize: "0.85rem",
+          fontWeight: 800,
+          padding: "0.85rem 0.7rem",
+        },
+        activeTab: {
+          color: "#111827",
+          boxShadow: "inset 0 -3px 0 #2563eb",
+        },
+        posts: {
+          position: "relative",
+          zIndex: 1,
+          display: "grid",
+          gap: "0.8rem",
+          paddingTop: "0.8rem",
+        },
+      }) satisfies Record<string, CSSProperties>,
+    []
+  );
+
   const handleAddNoteClick = () => {
     setIsFullEditorOpen(true);
   };
 
   const handleOpenChat = () => {
     setIsChatOpen(true);
+  };
+
+  const handleOpenProfile = () => {
+    setCenterPanelView("profile");
+    setProfileTab("posts");
+    setQuickStatus(null);
+    setQuickError(null);
+  };
+
+  const handleBackToFeed = () => {
+    setCenterPanelView("feed");
+  };
+
+  const handleOpenProfileComposer = () => {
+    setIsQuickComposerOpen(true);
+    setQuickStatus(null);
+    setQuickError(null);
   };
 
   const handleQuickContentChange = (
@@ -738,6 +969,9 @@ export default function DashboardHomePage() {
       setQuickSelectedTrack(null);
       setQuickSongMessage(null);
       setQuickStatus("Posted to feed.");
+      if (isQuickComposerOpen) {
+        setIsQuickComposerOpen(false);
+      }
       setRecapLoading(true);
       setRecapError(null);
       setRecapRefreshKey((prev) => prev + 1);
@@ -829,6 +1063,218 @@ export default function DashboardHomePage() {
     } finally {
       setIsLoggingOut(false);
     }
+  };
+
+  const renderQuickComposer = () => (
+    <form onSubmit={handleQuickSave} className="home-quick-form">
+      <div className="home-quick-compose-grid">
+        <div className="home-quick-editor">
+          <textarea
+            id="quick-content"
+            value={quickContent}
+            onChange={handleQuickContentChange}
+            className="home-quick-textarea"
+            rows={5}
+            placeholder="What's playing in your head?"
+            aria-label="Quick note"
+            maxLength={MAX_QUICK_NOTE_CHARS}
+          />
+          <div className="home-quick-count">
+            {quickContent.length}/{MAX_QUICK_NOTE_CHARS}
+          </div>
+        </div>
+
+        <aside className="home-quick-recs" aria-label="Song picks">
+          <div className="home-quick-recs-header">
+            <p className="home-quick-recs-title">
+              {hasQuickSearch ? "Search results" : "Recommended"}
+            </p>
+            {isSpotifyConnected === false && (
+              <button
+                type="button"
+                className="home-quick-link"
+                onClick={handleQuickConnectSpotify}
+              >
+                Connect
+              </button>
+            )}
+          </div>
+
+          {isQuickSongSearching && hasQuickSearch && (
+            <p className="home-quick-muted">Searching...</p>
+          )}
+
+          {isQuickRecommending && !hasQuickSearch && (
+            <p className="home-quick-muted">Finding matches...</p>
+          )}
+
+          {quickPanelMessage && (
+            <p className="home-quick-muted">{quickPanelMessage}</p>
+          )}
+
+          {quickPanelTracks.length > 0 && (
+            <div className="home-quick-track-list">
+              {quickPanelTracks.map((track, index) => (
+                <button
+                  type="button"
+                  key={`quick-track-${track.id}-${index}`}
+                  className="home-quick-track"
+                  onClick={() => handleQuickTrackSelect(track)}
+                >
+                  <span className="home-quick-track-art" aria-hidden="true">
+                    {track.image_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={track.image_url}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      track.title.slice(0, 1)
+                    )}
+                  </span>
+                  <span className="home-quick-track-copy">
+                    <span className="home-quick-track-title">{track.title}</span>
+                    <span className="home-quick-track-meta">
+                      {track.artist}
+                      {track.album ? ` - ${track.album}` : ""}
+                    </span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </aside>
+
+        <div className="home-quick-song-panel">
+          {quickSelectedTrack && (
+            <div className="home-quick-selected">
+              <span className="home-quick-track-art" aria-hidden="true">
+                {quickSelectedTrack.image_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={quickSelectedTrack.image_url}
+                    alt=""
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  quickSelectedTrack.title.slice(0, 1)
+                )}
+              </span>
+              <span className="home-quick-track-copy">
+                <span className="home-quick-track-title">
+                  {quickSelectedTrack.title}
+                </span>
+                <span className="home-quick-track-meta">
+                  {quickSelectedTrack.artist}
+                  {quickSelectedTrack.album
+                    ? ` - ${quickSelectedTrack.album}`
+                    : ""}
+                </span>
+              </span>
+              <button
+                type="button"
+                className="home-quick-clear"
+                onClick={handleQuickTrackClear}
+              >
+                Remove
+              </button>
+            </div>
+          )}
+
+          <input
+            id="quick-song-search"
+            value={quickSongQuery}
+            onChange={handleQuickSongQueryChange}
+            className="home-quick-search-input"
+            placeholder="Search a song"
+            aria-label="Search song"
+          />
+        </div>
+      </div>
+
+      {quickError && <p className="home-error">{quickError}</p>}
+      {quickStatus && <p className="home-quick-status">{quickStatus}</p>}
+
+      <div className="home-quick-actions">
+        <button
+          type="submit"
+          className="home-quick-button"
+          disabled={isSaving || !canPostQuick}
+        >
+          {isSaving ? "Saving..." : "Post"}
+        </button>
+      </div>
+    </form>
+  );
+
+  const renderPostCard = (note: NoteItem, variant: "feed" | "profile") => {
+    const body = note.content?.trim() ?? "";
+    const hasSong =
+      Boolean(note.song?.title?.trim()) && Boolean(note.song?.artist?.trim());
+
+    return (
+      <article
+        key={`${variant}-${note.id}`}
+        className={`feed-post${!body && hasSong ? " is-song-only" : ""}${
+          variant === "profile" ? " profile-post-card" : ""
+        }`}
+      >
+        <header className="feed-post-header">
+          <div className="feed-post-avatar" aria-hidden="true">
+            {profileInitials}
+          </div>
+          <div className="feed-post-user">
+            <p className="feed-post-name">{profileName}</p>
+            <p className="feed-post-meta">
+              {profileHandle} - {getNoteDateLabel(note)}
+            </p>
+          </div>
+          {variant === "feed" && (
+            <button
+              type="button"
+              className="feed-post-edit"
+              onClick={() => handleEditNoteClick(note)}
+            >
+              Edit
+            </button>
+          )}
+        </header>
+
+        {body && <p className="feed-post-body">{body}</p>}
+
+        {hasSong && note.song && (
+          <div className="feed-post-song">
+            <div className="feed-song-art" aria-hidden="true">
+              {note.song.image_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={note.song.image_url}
+                  alt=""
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <span>{note.song.title.slice(0, 1)}</span>
+              )}
+            </div>
+            <div className="feed-song-info">
+              <p className="feed-song-label">Soundtrack</p>
+              <p className="feed-song-title">{note.song.title}</p>
+              <p className="feed-song-artist">
+                {note.song.artist}
+                {note.song.album ? ` - ${note.song.album}` : ""}
+              </p>
+            </div>
+          </div>
+        )}
+
+        <footer className="feed-post-footer" aria-label="Post actions">
+          <span>Reflect</span>
+          <span>Save</span>
+          <span>Share</span>
+        </footer>
+      </article>
+    );
   };
 
   return (
@@ -939,253 +1385,249 @@ export default function DashboardHomePage() {
         className="home-panel home-center-panel"
         style={{ animationDelay: "0.12s" }}
       >
-        <div className="home-profile">
-          <div className="home-avatar" aria-hidden="true">
-            {profileInitials}
-          </div>
-          <div>
-            <p className="home-profile-label">Profile</p>
-            <p className="home-profile-name">{profileName}</p>
-            {userError && <p className="home-error">{userError}</p>}
-          </div>
-        </div>
+        {centerPanelView === "feed" ? (
+          <>
+            <button
+              type="button"
+              className="home-profile home-profile-trigger"
+              onClick={handleOpenProfile}
+              aria-label="View profile"
+            >
+              <div className="home-avatar" aria-hidden="true">
+                {profileInitials}
+              </div>
+              <div>
+                <p className="home-profile-label">Profile</p>
+                <p className="home-profile-name">{profileName}</p>
+                {userError && <p className="home-error">{userError}</p>}
+              </div>
+            </button>
 
-        <div className="home-quick-note">
-          <form onSubmit={handleQuickSave} className="home-quick-form">
-            <div className="home-quick-compose-grid">
-              <div className="home-quick-editor">
-                <textarea
-                  id="quick-content"
-                  value={quickContent}
-                  onChange={handleQuickContentChange}
-                  className="home-quick-textarea"
-                  rows={5}
-                  placeholder="What's playing in your head?"
-                  aria-label="Quick note"
-                  maxLength={MAX_QUICK_NOTE_CHARS}
-                />
-                <div className="home-quick-count">
-                  {quickContent.length}/{MAX_QUICK_NOTE_CHARS}
+            <div className="home-quick-note">{renderQuickComposer()}</div>
+
+            <section className="home-feed">
+              <div className="home-feed-header">
+                <div>
+                  <p className="home-panel-kicker">Feed</p>
+                  <h2 className="home-feed-title">Recent pulses</h2>
                 </div>
               </div>
 
-              <aside className="home-quick-recs" aria-label="Song picks">
-                <div className="home-quick-recs-header">
-                  <p className="home-quick-recs-title">
-                    {hasQuickSearch ? "Search results" : "Recommended"}
-                  </p>
-                  {isSpotifyConnected === false && (
-                    <button
-                      type="button"
-                      className="home-quick-link"
-                      onClick={handleQuickConnectSpotify}
-                    >
-                      Connect
-                    </button>
-                  )}
+              {notesLoading && (
+                <div className="home-feed-empty">Loading posts...</div>
+              )}
+
+              {!notesLoading && notesError && (
+                <div className="home-error">{notesError}</div>
+              )}
+
+              {!notesLoading && !notesError && feedNotes.length === 0 && (
+                <div className="home-feed-empty">No posts yet.</div>
+              )}
+
+              {!notesLoading && !notesError && feedNotes.length > 0 && (
+                <div className="home-feed-list">
+                  {feedNotes.map((note) => renderPostCard(note, "feed"))}
                 </div>
+              )}
+            </section>
+          </>
+        ) : (
+          <section
+            className="profile-view"
+            style={profileInlineStyles.view}
+            aria-label="Profile"
+          >
+            <header className="profile-topbar" style={profileInlineStyles.topbar}>
+              <button
+                type="button"
+                className="profile-back-button"
+                style={profileInlineStyles.iconButton}
+                onClick={handleBackToFeed}
+                aria-label="Back to feed"
+              >
+                <svg
+                  viewBox="0 0 20 20"
+                  fill="none"
+                  aria-hidden="true"
+                  style={{ width: "19px", height: "19px" }}
+                >
+                  <path
+                    d="M12.5 4.5 7 10l5.5 5.5"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
+              <div>
+                <p
+                  className="profile-topbar-name"
+                  style={profileInlineStyles.topbarName}
+                >
+                  {profileName}
+                </p>
+                <p
+                  className="profile-topbar-count"
+                  style={profileInlineStyles.topbarCount}
+                >
+                  {profilePostCountLabel}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="profile-post-button"
+                style={profileInlineStyles.postButton}
+                onClick={handleOpenProfileComposer}
+              >
+                <svg
+                  viewBox="0 0 20 20"
+                  fill="none"
+                  aria-hidden="true"
+                  style={{ width: "15px", height: "15px" }}
+                >
+                  <path
+                    d="M10 4.5v11M4.5 10h11"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                  />
+                </svg>
+                Post
+              </button>
+            </header>
 
-                {isQuickSongSearching && hasQuickSearch && (
-                  <p className="home-quick-muted">Searching...</p>
-                )}
-
-                {isQuickRecommending && !hasQuickSearch && (
-                  <p className="home-quick-muted">Finding matches...</p>
-                )}
-
-                {quickPanelMessage && (
-                  <p className="home-quick-muted">{quickPanelMessage}</p>
-                )}
-
-                {quickPanelTracks.length > 0 && (
-                  <div className="home-quick-track-list">
-                    {quickPanelTracks.map((track, index) => (
-                      <button
-                        type="button"
-                        key={`quick-track-${track.id}-${index}`}
-                        className="home-quick-track"
-                        onClick={() => handleQuickTrackSelect(track)}
-                      >
-                        <span className="home-quick-track-art" aria-hidden="true">
-                          {track.image_url ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={track.image_url}
-                              alt=""
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            track.title.slice(0, 1)
-                          )}
-                        </span>
-                        <span className="home-quick-track-copy">
-                          <span className="home-quick-track-title">
-                            {track.title}
-                          </span>
-                          <span className="home-quick-track-meta">
-                            {track.artist}
-                            {track.album ? ` - ${track.album}` : ""}
-                          </span>
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </aside>
-
-              <div className="home-quick-song-panel">
-                {quickSelectedTrack && (
-                  <div className="home-quick-selected">
-                    <span className="home-quick-track-art" aria-hidden="true">
-                      {quickSelectedTrack.image_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={quickSelectedTrack.image_url}
-                          alt=""
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        quickSelectedTrack.title.slice(0, 1)
-                      )}
-                    </span>
-                    <span className="home-quick-track-copy">
-                      <span className="home-quick-track-title">
-                        {quickSelectedTrack.title}
-                      </span>
-                      <span className="home-quick-track-meta">
-                        {quickSelectedTrack.artist}
-                        {quickSelectedTrack.album
-                          ? ` - ${quickSelectedTrack.album}`
-                          : ""}
-                      </span>
-                    </span>
-                    <button
-                      type="button"
-                      className="home-quick-clear"
-                      onClick={handleQuickTrackClear}
-                    >
-                      Remove
-                    </button>
-                  </div>
-                )}
-
-                <input
-                  id="quick-song-search"
-                  value={quickSongQuery}
-                  onChange={handleQuickSongQueryChange}
-                  className="home-quick-search-input"
-                  placeholder="Search a song"
-                  aria-label="Search song"
-                />
+            <div className="profile-hero" style={profileInlineStyles.hero}>
+              <div
+                className="profile-cover"
+                style={profileInlineStyles.cover}
+                aria-hidden="true"
+              />
+              <div className="profile-identity" style={profileInlineStyles.identity}>
+                <div
+                  className="profile-avatar"
+                  style={profileInlineStyles.avatar}
+                  aria-hidden="true"
+                >
+                  {profileInitials}
+                </div>
+                <button
+                  type="button"
+                  className="profile-edit-button"
+                  style={profileInlineStyles.editButton}
+                >
+                  Edit profile
+                </button>
+              </div>
+              <div className="profile-copy" style={profileInlineStyles.copy}>
+                <div className="profile-name-row" style={profileInlineStyles.nameRow}>
+                  <h2 className="profile-name" style={profileInlineStyles.name}>
+                    {profileName}
+                  </h2>
+                  <span className="profile-badge" style={profileInlineStyles.badge}>
+                    NoteBeat
+                  </span>
+                </div>
+                <p className="profile-handle" style={profileInlineStyles.handle}>
+                  {profileHandle}
+                </p>
+                <p className="profile-bio" style={profileInlineStyles.bio}>
+                  Quick notes, songs, and small signals from the day.
+                </p>
+                <div className="profile-stats" style={profileInlineStyles.stats}>
+                  <span>
+                    <strong>{feedNotes.length}</strong> Posts
+                  </span>
+                  <span>
+                    <strong>{likedNotes.length}</strong> Likes
+                  </span>
+                </div>
               </div>
             </div>
 
-            {quickError && <p className="home-error">{quickError}</p>}
-            {quickStatus && <p className="home-quick-status">{quickStatus}</p>}
-
-            <div className="home-quick-actions">
+            <nav
+              className="profile-tabs"
+              style={profileInlineStyles.tabs}
+              aria-label="Profile sections"
+            >
               <button
-                type="submit"
-                className="home-quick-button"
-                disabled={isSaving || !canPostQuick}
+                type="button"
+                className={`profile-tab${profileTab === "posts" ? " active" : ""}`}
+                style={{
+                  ...profileInlineStyles.tab,
+                  ...(profileTab === "posts" ? profileInlineStyles.activeTab : {}),
+                }}
+                onClick={() => setProfileTab("posts")}
               >
-                {isSaving ? "Saving..." : "Post"}
+                Posts
+              </button>
+              <button
+                type="button"
+                className={`profile-tab${profileTab === "likes" ? " active" : ""}`}
+                style={{
+                  ...profileInlineStyles.tab,
+                  ...(profileTab === "likes" ? profileInlineStyles.activeTab : {}),
+                }}
+                onClick={() => setProfileTab("likes")}
+              >
+                Likes
+              </button>
+            </nav>
+
+            <div className="profile-posts" style={profileInlineStyles.posts}>
+              {profileTab === "posts" && notesLoading && (
+                <div className="home-feed-empty">Loading posts...</div>
+              )}
+
+              {profileTab === "posts" && !notesLoading && notesError && (
+                <div className="home-error">{notesError}</div>
+              )}
+
+              {profileTab === "posts" &&
+                !notesLoading &&
+                !notesError &&
+                feedNotes.length === 0 && (
+                  <div className="home-feed-empty">No posts yet.</div>
+                )}
+
+              {profileTab === "posts" &&
+                !notesLoading &&
+                !notesError &&
+                feedNotes.map((note) => renderPostCard(note, "profile"))}
+
+              {profileTab === "likes" && likedNotes.length === 0 && (
+                <div className="home-feed-empty">No liked posts yet.</div>
+              )}
+            </div>
+          </section>
+        )}
+      </section>
+
+      {isQuickComposerOpen && (
+        <div className="home-modal" role="dialog" aria-modal="true">
+          <div
+            className="home-modal-backdrop"
+            onClick={() => setIsQuickComposerOpen(false)}
+          />
+          <div className="home-modal-card home-quick-modal-card">
+            <div className="home-editor-header">
+              <div>
+                <p className="home-panel-kicker">Quick note</p>
+                <h2 className="home-panel-title">Post to your profile</h2>
+              </div>
+              <button
+                type="button"
+                className="home-editor-close"
+                onClick={() => setIsQuickComposerOpen(false)}
+              >
+                Close
               </button>
             </div>
-          </form>
-        </div>
-
-        <section className="home-feed">
-          <div className="home-feed-header">
-            <div>
-              <p className="home-panel-kicker">Feed</p>
-              <h2 className="home-feed-title">Recent pulses</h2>
-            </div>
+            {renderQuickComposer()}
           </div>
-
-          {notesLoading && (
-            <div className="home-feed-empty">Loading posts...</div>
-          )}
-
-          {!notesLoading && notesError && (
-            <div className="home-error">{notesError}</div>
-          )}
-
-          {!notesLoading && !notesError && feedNotes.length === 0 && (
-            <div className="home-feed-empty">No posts yet.</div>
-          )}
-
-          {!notesLoading && !notesError && feedNotes.length > 0 && (
-            <div className="home-feed-list">
-              {feedNotes.map((note) => {
-                const body = note.content?.trim() ?? "";
-                const hasSong =
-                  Boolean(note.song?.title?.trim()) &&
-                  Boolean(note.song?.artist?.trim());
-
-                return (
-                  <article
-                    key={`feed-${note.id}`}
-                    className={`feed-post${!body && hasSong ? " is-song-only" : ""}`}
-                  >
-                    <header className="feed-post-header">
-                      <div className="feed-post-avatar" aria-hidden="true">
-                        {profileInitials}
-                      </div>
-                      <div className="feed-post-user">
-                        <p className="feed-post-name">{profileName}</p>
-                        <p className="feed-post-meta">
-                          {profileHandle} - {getNoteDateLabel(note)}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        className="feed-post-edit"
-                        onClick={() => handleEditNoteClick(note)}
-                      >
-                        Edit
-                      </button>
-                    </header>
-
-                    {body && <p className="feed-post-body">{body}</p>}
-
-                    {hasSong && note.song && (
-                      <div className="feed-post-song">
-                        <div className="feed-song-art" aria-hidden="true">
-                          {note.song.image_url ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={note.song.image_url}
-                              alt=""
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            <span>{note.song.title.slice(0, 1)}</span>
-                          )}
-                        </div>
-                        <div className="feed-song-info">
-                          <p className="feed-song-label">Soundtrack</p>
-                          <p className="feed-song-title">{note.song.title}</p>
-                          <p className="feed-song-artist">
-                            {note.song.artist}
-                            {note.song.album ? ` - ${note.song.album}` : ""}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                    <footer className="feed-post-footer" aria-label="Post actions">
-                      <span>Reflect</span>
-                      <span>Save</span>
-                      <span>Share</span>
-                    </footer>
-                  </article>
-                );
-              })}
-            </div>
-          )}
-        </section>
-      </section>
+        </div>
+      )}
 
       {isChatOpen && (
         <div className="home-modal" role="dialog" aria-modal="true">
