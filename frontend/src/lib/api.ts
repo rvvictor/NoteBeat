@@ -1,6 +1,11 @@
 import { EmotionDashboard } from "@/lib/emotions";
 import { ChatRequest, ChatResponse } from "@/lib/ai";
-import { LoginRequest, RegisterRequest } from "@/lib/auth";
+import {
+  LoginRequest,
+  ProfileUpdateRequest,
+  RegisterRequest,
+  UserProfile,
+} from "@/lib/auth";
 import { NoteCreatePayload, NoteItem, SpotifyTrack } from "@/lib/notes";
 import { RecapDashboard, RecapRange } from "@/lib/recap";
 
@@ -126,10 +131,30 @@ export async function logout(): Promise<{ message: string }> {
   return res.json();
 }
 
-export async function getCurrentUser(): Promise<{ id: string; email: string; username: string }> {
+export async function getCurrentUser(): Promise<UserProfile> {
   const res = await fetch(`${API_BASE}/auth/me`, {
     credentials: "include",
     cache: "no-store",
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new ApiError(res.status, text);
+  }
+
+  return res.json();
+}
+
+export async function updateCurrentUser(
+  payload: ProfileUpdateRequest
+): Promise<UserProfile> {
+  const res = await fetch(`${API_BASE}/auth/me`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+    credentials: "include",
   });
 
   if (!res.ok) {

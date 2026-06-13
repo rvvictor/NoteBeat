@@ -1,6 +1,7 @@
 import os
 from fastapi import FastAPI
 from app.db.database import engine, Base
+from app.db.migrations import ensure_user_profile_columns
 from app.models import user
 from app.routes import auth
 from app.models import note
@@ -18,6 +19,7 @@ def root():
     return {"message": "API running"}
 
 Base.metadata.create_all(bind=engine)
+ensure_user_profile_columns(engine)
 
 raw_origins = os.getenv(
     "CORS_ORIGINS",

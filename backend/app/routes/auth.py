@@ -1,7 +1,7 @@
 import os
 from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
-from app.schemas.user import UserCreate, UserLogin, UserOut
+from app.schemas.user import UserCreate, UserLogin, UserOut, UserUpdate
 from app.models.user import User
 from app.db.deps import get_db
 from app.services.auth import hash_password, verify_password
@@ -30,7 +30,8 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
     new_user = User(
         email=user.email,
         password=hash_password(user.password),
-        username=user.username
+        username=user.username,
+        display_name=user.username
     )
 
     db.add(new_user)
@@ -73,4 +74,38 @@ def logout(response: Response):
 
 @router.get("/me", response_model=UserOut)
 def get_me(user=Depends(get_current_user)):
-    return UserOut(id=user.id, email=user.email, username=user.username)
+    return user
+
+
+@router.put("/me", response_model=UserOut)
+def update_me(
+    profile: UserUpdate,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user)
+):
+    payload = profile.model_dump(exclude_unset=True)
+
+    new_username = payload.get("username")
+    if new_username and new_username != user.username:
+        existing_username = (
+            db.query(User)
+            .filter(User.username == new_username, User.id != user.id)
+            .first()
+        )
+        if existing_username:
+            raise HTTPException(status_code=400, detail="Username already taken")
+        user.username = new_username
+
+    if "display_name" in payload:
+        user.display_name = payload.get("display_name") or user.username
+    if "bio" in payload:
+        user.bio = payload.get("bio")
+    if "avatar_url" in payload:
+        user.avatar_url = payload.get("avatar_url")
+    if "cover_url" in payload:
+        user.cover_url = payload.get("cover_url")
+
+    db.commit()
+    db.refresh(user)
+
+    return user

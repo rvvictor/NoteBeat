@@ -17,7 +17,9 @@ import {
   getSpotifyStatus,
   logout,
   searchSpotify,
+  updateCurrentUser,
 } from "@/lib/api";
+import { UserProfile } from "@/lib/auth";
 import { isQuickNote, NoteItem, QUICK_NOTE_TITLE, SpotifyTrack } from "@/lib/notes";
 import { EmotionDashboard } from "@/lib/emotions";
 import { RecapDashboard, RecapRange } from "@/lib/recap";
@@ -77,6 +79,14 @@ type ChatMessage = {
 
 type CenterPanelView = "feed" | "profile";
 type ProfileTab = "posts" | "likes";
+
+type ProfileFormState = {
+  displayName: string;
+  username: string;
+  bio: string;
+  avatarUrl: string;
+  coverUrl: string;
+};
 
 type MoodTheme = {
   background: string;
@@ -205,9 +215,75 @@ const getPrivateNoteTitle = (content: string) => {
 };
 
 const MAX_QUICK_NOTE_CHARS = 220;
+const MAX_PROFILE_IMAGE_BYTES = 1_500_000;
+const DEFAULT_PROFILE_BIO = "Quick notes, songs, and small signals from the day.";
+
+const emptyProfileForm: ProfileFormState = {
+  displayName: "",
+  username: "",
+  bio: "",
+  avatarUrl: "",
+  coverUrl: "",
+};
 
 const limitQuickNoteText = (value: string) =>
   value.slice(0, MAX_QUICK_NOTE_CHARS);
+
+const validateProfileUsername = (value: string) => {
+  const username = value.trim();
+
+  if (!username) {
+    return "Username is required.";
+  }
+  if (username.length < 3) {
+    return "Username must be at least 3 characters.";
+  }
+  if (username.length > 20) {
+    return "Username must be less than 20 characters.";
+  }
+  if (!/^[A-Za-z]/.test(username)) {
+    return "Username must start with a letter.";
+  }
+  if (!/^[A-Za-z0-9_]+$/.test(username)) {
+    return "Username can only contain letters, numbers, and underscores.";
+  }
+
+  return null;
+};
+
+const readImageAsDataUrl = (file: File) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        resolve(reader.result);
+        return;
+      }
+      reject(new Error("We couldn't read that image."));
+    };
+    reader.onerror = () => reject(new Error("We couldn't read that image."));
+    reader.readAsDataURL(file);
+  });
+
+const getApiErrorMessage = (error: unknown, fallback: string) => {
+  if (error instanceof ApiError) {
+    try {
+      const payload = JSON.parse(error.message) as { detail?: unknown };
+      if (typeof payload.detail === "string") {
+        return payload.detail;
+      }
+    } catch {
+      return error.message || fallback;
+    }
+  }
+
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return fallback;
+};
 
 const getSongLabel = (note: NoteItem) => {
   if (!note.song?.title?.trim() || !note.song.artist?.trim()) {
@@ -290,7 +366,7 @@ export default function DashboardHomePage() {
   const router = useRouter();
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
-  const [username, setUsername] = useState("");
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [userError, setUserError] = useState<string | null>(null);
 
   const [notes, setNotes] = useState<NoteItem[]>([]);
@@ -327,6 +403,11 @@ export default function DashboardHomePage() {
     useState<CenterPanelView>("feed");
   const [profileTab, setProfileTab] = useState<ProfileTab>("posts");
   const [isQuickComposerOpen, setIsQuickComposerOpen] = useState(false);
+  const [isProfileEditorOpen, setIsProfileEditorOpen] = useState(false);
+  const [profileForm, setProfileForm] =
+    useState<ProfileFormState>(emptyProfileForm);
+  const [profileFormError, setProfileFormError] = useState<string | null>(null);
+  const [isProfileSaving, setIsProfileSaving] = useState(false);
   const [isFullEditorOpen, setIsFullEditorOpen] = useState(false);
   const [editingNote, setEditingNote] = useState<NoteItem | null>(null);
   const [visibleCount, setVisibleCount] = useState(7);
@@ -347,13 +428,13 @@ export default function DashboardHomePage() {
 
   useEffect(() => {
     getCurrentUser()
-      .then((user) => setUsername(user.username))
+      .then((user) => setCurrentUser(user))
       .catch((err) => {
         if (err instanceof ApiError && err.status === 401) {
           router.push("/login");
           return;
         }
-        const message = err instanceof Error ? err.message : "Unknown error";
+        const message = getApiErrorMessage(err, "Unknown error");
         setUserError(message);
       });
   }, [router]);
@@ -569,17 +650,45 @@ export default function DashboardHomePage() {
     ? "Loading..."
     : `${privateNotes.length} ${privateNotes.length === 1 ? "note" : "notes"}`;
 
-  const profileName = username || "Your profile";
-  const profileInitials = username ? getInitials(username) : "NB";
-  const profileHandle = getUserHandle(profileName);
+  const profileUsername = currentUser?.username ?? "";
+  const profileName =
+    currentUser?.display_name?.trim() || profileUsername || "Your profile";
+  const profileInitials = profileName ? getInitials(profileName) : "NB";
+  const profileHandle = profileUsername
+    ? `@${profileUsername}`
+    : getUserHandle(profileName);
+  const profileBio = currentUser?.bio?.trim() || DEFAULT_PROFILE_BIO;
+  const profileAvatarUrl = currentUser?.avatar_url?.trim() ?? "";
+  const profileCoverUrl = currentUser?.cover_url?.trim() ?? "";
   const feedNotes = useMemo(
     () => sortedNotes.filter((note) => isQuickNote(note)).slice(0, 8),
     [sortedNotes]
   );
   const likedNotes = useMemo<NoteItem[]>(() => [], []);
+  const profileSongPosts = useMemo(
+    () => feedNotes.filter((note) => note.song).length,
+    [feedNotes]
+  );
   const profilePostCountLabel = `${feedNotes.length} ${
     feedNotes.length === 1 ? "post" : "posts"
   }`;
+  const profileSignalPills = useMemo(
+    () => [
+      {
+        label: "Mood pulse",
+        value: stats?.summary.dominant_emotion ?? "warming up",
+      },
+      {
+        label: "Songprint",
+        value: `${profileSongPosts} ${profileSongPosts === 1 ? "song" : "songs"}`,
+      },
+      {
+        label: "Space",
+        value: "private first",
+      },
+    ],
+    [profileSongPosts, stats?.summary.dominant_emotion]
+  );
   const hasQuickSearch = quickSongQuery.trim().length >= 2;
   const quickPanelTracks = hasQuickSearch
     ? quickSpotifyResults
@@ -678,8 +787,8 @@ export default function DashboardHomePage() {
         },
         hero: {
           display: "grid",
-          gridTemplateRows: "132px auto minmax(116px, auto)",
-          minHeight: "300px",
+          gridTemplateRows: "132px auto minmax(132px, auto)",
+          minHeight: "326px",
           position: "relative",
           overflow: "hidden",
           border: "1px solid rgba(203, 213, 225, 0.8)",
@@ -687,9 +796,17 @@ export default function DashboardHomePage() {
           background: "#ffffff",
         },
         cover: {
+          position: "relative",
           height: "132px",
+          overflow: "hidden",
           background:
             "linear-gradient(135deg, rgba(15, 23, 42, 0.78), rgba(20, 184, 166, 0.2)), linear-gradient(90deg, #172033, #334155 46%, #0f766e)",
+        },
+        coverImage: {
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          display: "block",
         },
         identity: {
           position: "relative",
@@ -698,14 +815,20 @@ export default function DashboardHomePage() {
           alignItems: "flex-start",
           justifyContent: "space-between",
           gap: "1rem",
-          minHeight: "50px",
+          minHeight: "68px",
           padding: "0 1rem",
           background: "#ffffff",
         },
         avatar: {
+          position: "relative",
+          zIndex: 2,
+          flex: "0 0 auto",
+          overflow: "hidden",
+          isolation: "isolate",
           width: "118px",
           height: "118px",
           marginTop: "-58px",
+          marginBottom: "0.35rem",
           border: "5px solid #ffffff",
           borderRadius: "999px",
           background: "linear-gradient(135deg, #dbeafe, #ccfbf1)",
@@ -716,6 +839,12 @@ export default function DashboardHomePage() {
           fontSize: "1.55rem",
           fontWeight: 900,
           boxShadow: "0 14px 28px rgba(15, 23, 42, 0.14)",
+        },
+        avatarImage: {
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          display: "block",
         },
         editButton: {
           display: "inline-flex",
@@ -737,7 +866,7 @@ export default function DashboardHomePage() {
           display: "grid",
           alignContent: "start",
           gap: "0.42rem",
-          minHeight: "116px",
+          minHeight: "132px",
           padding: "0.15rem 1rem 1rem",
           background: "#ffffff",
         },
@@ -781,6 +910,25 @@ export default function DashboardHomePage() {
           color: "#64748b",
           marginTop: "0.1rem",
           fontSize: "0.84rem",
+        },
+        signature: {
+          display: "flex",
+          flexWrap: "wrap",
+          gap: "0.38rem",
+          marginTop: "0.16rem",
+        },
+        signalPill: {
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "0.28rem",
+          border: "1px solid rgba(20, 184, 166, 0.24)",
+          borderRadius: "999px",
+          background:
+            "linear-gradient(135deg, rgba(240, 253, 250, 0.95), rgba(239, 246, 255, 0.95))",
+          color: "#0f172a",
+          padding: "0.24rem 0.48rem",
+          fontSize: "0.68rem",
+          fontWeight: 800,
         },
         tabs: {
           position: "relative",
@@ -840,6 +988,102 @@ export default function DashboardHomePage() {
     setIsQuickComposerOpen(true);
     setQuickStatus(null);
     setQuickError(null);
+  };
+
+  const handleOpenProfileEditor = () => {
+    setProfileForm({
+      displayName: currentUser?.display_name ?? profileName,
+      username: currentUser?.username ?? "",
+      bio: currentUser?.bio ?? "",
+      avatarUrl: currentUser?.avatar_url ?? "",
+      coverUrl: currentUser?.cover_url ?? "",
+    });
+    setProfileFormError(null);
+    setIsProfileEditorOpen(true);
+  };
+
+  const handleProfileFormChange = (
+    field: keyof Pick<ProfileFormState, "displayName" | "username" | "bio">,
+    value: string
+  ) => {
+    setProfileForm((prev) => ({ ...prev, [field]: value }));
+    setProfileFormError(null);
+  };
+
+  const handleProfileImageChange = async (
+    field: keyof Pick<ProfileFormState, "avatarUrl" | "coverUrl">,
+    file?: File
+  ) => {
+    if (!file) {
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      setProfileFormError("Choose an image file.");
+      return;
+    }
+
+    if (file.size > MAX_PROFILE_IMAGE_BYTES) {
+      setProfileFormError("Choose an image smaller than 1.5 MB.");
+      return;
+    }
+
+    try {
+      const dataUrl = await readImageAsDataUrl(file);
+      setProfileForm((prev) => ({ ...prev, [field]: dataUrl }));
+      setProfileFormError(null);
+    } catch (err) {
+      setProfileFormError(getApiErrorMessage(err, "We couldn't read that image."));
+    }
+  };
+
+  const handleClearProfileImage = (
+    field: keyof Pick<ProfileFormState, "avatarUrl" | "coverUrl">
+  ) => {
+    setProfileForm((prev) => ({ ...prev, [field]: "" }));
+    setProfileFormError(null);
+  };
+
+  const handleProfileSave = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (isProfileSaving) {
+      return;
+    }
+
+    const usernameError = validateProfileUsername(profileForm.username);
+    if (usernameError) {
+      setProfileFormError(usernameError);
+      return;
+    }
+
+    setIsProfileSaving(true);
+    setProfileFormError(null);
+
+    try {
+      const updated = await updateCurrentUser({
+        display_name: profileForm.displayName.trim() || profileForm.username.trim(),
+        username: profileForm.username.trim(),
+        bio: profileForm.bio.trim() || null,
+        avatar_url: profileForm.avatarUrl || null,
+        cover_url: profileForm.coverUrl || null,
+      });
+
+      setCurrentUser(updated);
+      setIsProfileEditorOpen(false);
+      setUserError(null);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        router.push("/login");
+        return;
+      }
+
+      setProfileFormError(
+        getApiErrorMessage(err, "We couldn't save your profile.")
+      );
+    } finally {
+      setIsProfileSaving(false);
+    }
   };
 
   const handleQuickContentChange = (
@@ -1503,19 +1747,40 @@ export default function DashboardHomePage() {
                 className="profile-cover"
                 style={profileInlineStyles.cover}
                 aria-hidden="true"
-              />
+              >
+                {profileCoverUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={profileCoverUrl}
+                    alt=""
+                    className="profile-cover-image"
+                    style={profileInlineStyles.coverImage}
+                  />
+                )}
+              </div>
               <div className="profile-identity" style={profileInlineStyles.identity}>
                 <div
                   className="profile-avatar"
                   style={profileInlineStyles.avatar}
                   aria-hidden="true"
                 >
-                  {profileInitials}
+                  {profileAvatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={profileAvatarUrl}
+                      alt=""
+                      className="profile-avatar-image"
+                      style={profileInlineStyles.avatarImage}
+                    />
+                  ) : (
+                    profileInitials
+                  )}
                 </div>
                 <button
                   type="button"
                   className="profile-edit-button"
                   style={profileInlineStyles.editButton}
+                  onClick={handleOpenProfileEditor}
                 >
                   Edit profile
                 </button>
@@ -1533,7 +1798,7 @@ export default function DashboardHomePage() {
                   {profileHandle}
                 </p>
                 <p className="profile-bio" style={profileInlineStyles.bio}>
-                  Quick notes, songs, and small signals from the day.
+                  {profileBio}
                 </p>
                 <div className="profile-stats" style={profileInlineStyles.stats}>
                   <span>
@@ -1542,6 +1807,22 @@ export default function DashboardHomePage() {
                   <span>
                     <strong>{likedNotes.length}</strong> Likes
                   </span>
+                </div>
+                <div
+                  className="profile-signature"
+                  style={profileInlineStyles.signature}
+                  aria-label="NoteBeat profile signals"
+                >
+                  {profileSignalPills.map((pill) => (
+                    <span
+                      key={pill.label}
+                      className="profile-signal-pill"
+                      style={profileInlineStyles.signalPill}
+                    >
+                      <span>{pill.label}</span>
+                      <strong>{pill.value}</strong>
+                    </span>
+                  ))}
                 </div>
               </div>
             </div>
@@ -1625,6 +1906,170 @@ export default function DashboardHomePage() {
               </button>
             </div>
             {renderQuickComposer()}
+          </div>
+        </div>
+      )}
+
+      {isProfileEditorOpen && (
+        <div className="home-modal" role="dialog" aria-modal="true">
+          <div
+            className="home-modal-backdrop"
+            onClick={() => setIsProfileEditorOpen(false)}
+          />
+          <div className="home-modal-card profile-edit-modal-card">
+            <div className="home-editor-header">
+              <div>
+                <p className="home-panel-kicker">Profile</p>
+                <h2 className="home-panel-title">Edit your NoteBeat card</h2>
+              </div>
+              <button
+                type="button"
+                className="home-editor-close"
+                onClick={() => setIsProfileEditorOpen(false)}
+              >
+                Close
+              </button>
+            </div>
+
+            <form className="profile-edit-form" onSubmit={handleProfileSave}>
+              <div className="profile-edit-preview" aria-hidden="true">
+                <div className="profile-edit-preview-cover">
+                  {profileForm.coverUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={profileForm.coverUrl} alt="" />
+                  )}
+                </div>
+                <div className="profile-edit-preview-avatar">
+                  {profileForm.avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={profileForm.avatarUrl} alt="" />
+                  ) : (
+                    getInitials(profileForm.displayName || profileForm.username)
+                  )}
+                </div>
+              </div>
+
+              <div className="profile-edit-grid">
+                <label className="profile-edit-field" htmlFor="profile-display-name">
+                  <span>Name</span>
+                  <input
+                    id="profile-display-name"
+                    value={profileForm.displayName}
+                    onChange={(event) =>
+                      handleProfileFormChange("displayName", event.target.value)
+                    }
+                    className="profile-edit-input"
+                    maxLength={80}
+                  />
+                </label>
+
+                <label className="profile-edit-field" htmlFor="profile-username">
+                  <span>Username</span>
+                  <input
+                    id="profile-username"
+                    value={profileForm.username}
+                    onChange={(event) =>
+                      handleProfileFormChange("username", event.target.value)
+                    }
+                    className="profile-edit-input"
+                    maxLength={20}
+                  />
+                </label>
+
+                <label className="profile-edit-field profile-edit-field-wide" htmlFor="profile-bio">
+                  <span>Bio</span>
+                  <textarea
+                    id="profile-bio"
+                    value={profileForm.bio}
+                    onChange={(event) =>
+                      handleProfileFormChange("bio", event.target.value)
+                    }
+                    className="profile-edit-textarea"
+                    rows={3}
+                    maxLength={220}
+                  />
+                </label>
+
+                <div className="profile-edit-field">
+                  <span>Profile photo</span>
+                  <div className="profile-file-row">
+                    <label className="profile-file-control">
+                      Upload
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(event) => {
+                          void handleProfileImageChange(
+                            "avatarUrl",
+                            event.target.files?.[0]
+                          );
+                          event.target.value = "";
+                        }}
+                      />
+                    </label>
+                    {profileForm.avatarUrl && (
+                      <button
+                        type="button"
+                        className="profile-file-remove"
+                        onClick={() => handleClearProfileImage("avatarUrl")}
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="profile-edit-field">
+                  <span>Cover photo</span>
+                  <div className="profile-file-row">
+                    <label className="profile-file-control">
+                      Upload
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(event) => {
+                          void handleProfileImageChange(
+                            "coverUrl",
+                            event.target.files?.[0]
+                          );
+                          event.target.value = "";
+                        }}
+                      />
+                    </label>
+                    {profileForm.coverUrl && (
+                      <button
+                        type="button"
+                        className="profile-file-remove"
+                        onClick={() => handleClearProfileImage("coverUrl")}
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {profileFormError && (
+                <p className="home-error">{profileFormError}</p>
+              )}
+
+              <div className="profile-edit-actions">
+                <button
+                  type="button"
+                  className="home-editor-close"
+                  onClick={() => setIsProfileEditorOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="home-quick-button"
+                  disabled={isProfileSaving}
+                >
+                  {isProfileSaving ? "Saving..." : "Save profile"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
