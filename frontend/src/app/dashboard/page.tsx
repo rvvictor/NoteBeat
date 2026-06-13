@@ -13,12 +13,18 @@ import {
   getEmotionDashboard,
   getNotes,
   getRecap,
+  getSpotifyRecommendations,
+  getSpotifyStatus,
   logout,
+  searchSpotify,
 } from "@/lib/api";
-import { NoteItem } from "@/lib/notes";
+import { isQuickNote, NoteItem, QUICK_NOTE_TITLE, SpotifyTrack } from "@/lib/notes";
 import { EmotionDashboard } from "@/lib/emotions";
 import { RecapDashboard, RecapRange } from "@/lib/recap";
 import NoteComposer from "@/components/NoteComposer";
+
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
 const monthFormatter = new Intl.DateTimeFormat("en-US", { month: "long" });
 const dateFormatter = new Intl.DateTimeFormat("en-US", {
@@ -178,11 +184,15 @@ const getMoodTheme = (emotion?: string | null) => {
   );
 };
 
-const getQuickNoteTitle = (content: string) => {
-  const firstLine = content
+const getFirstContentLine = (content: string) =>
+  content
+    .replace(/\r\n/g, "\n")
     .split("\n")
     .map((line) => line.trim())
     .find(Boolean);
+
+const getPrivateNoteTitle = (content: string) => {
+  const firstLine = getFirstContentLine(content);
 
   if (!firstLine) {
     return "Untitled note";
@@ -192,20 +202,32 @@ const getQuickNoteTitle = (content: string) => {
 };
 
 const MAX_QUICK_NOTE_CHARS = 220;
-const NOTE_EMPTY_CONTENT_LABEL = "No additional text";
 
 const limitQuickNoteText = (value: string) =>
   value.slice(0, MAX_QUICK_NOTE_CHARS);
 
-const getNotePreviewTitle = (note: NoteItem) =>
-  note.title?.trim() || getQuickNoteTitle(note.content);
+const getSongLabel = (note: NoteItem) => {
+  if (!note.song?.title?.trim() || !note.song.artist?.trim()) {
+    return "Post";
+  }
+
+  return `${note.song.title} by ${note.song.artist}`;
+};
+
+const getNotePreviewTitle = (note: NoteItem) => {
+  if (isQuickNote(note)) {
+    return getFirstContentLine(note.content) || getSongLabel(note);
+  }
+
+  return note.title?.trim() || getPrivateNoteTitle(note.content);
+};
 
 const getNotePreviewExcerpt = (note: NoteItem) => {
   const title = getNotePreviewTitle(note);
   const content = note.content?.trim();
 
   if (!content) {
-    return NOTE_EMPTY_CONTENT_LABEL;
+    return "";
   }
 
   const lines = content.replace(/\r\n/g, "\n").split("\n");
@@ -218,7 +240,7 @@ const getNotePreviewExcerpt = (note: NoteItem) => {
       .slice(firstContentIndex + 1)
       .join("\n")
       .trim();
-    return remainingContent || NOTE_EMPTY_CONTENT_LABEL;
+    return remainingContent;
   }
 
   return content;
@@ -277,6 +299,24 @@ export default function DashboardHomePage() {
   const [statsLoading, setStatsLoading] = useState(true);
 
   const [quickContent, setQuickContent] = useState("");
+  const [quickSongQuery, setQuickSongQuery] = useState("");
+  const [quickSpotifyResults, setQuickSpotifyResults] = useState<SpotifyTrack[]>(
+    []
+  );
+  const [quickRecommendations, setQuickRecommendations] = useState<
+    SpotifyTrack[]
+  >([]);
+  const [quickSelectedTrack, setQuickSelectedTrack] =
+    useState<SpotifyTrack | null>(null);
+  const [isQuickSongSearching, setIsQuickSongSearching] = useState(false);
+  const [isQuickRecommending, setIsQuickRecommending] = useState(false);
+  const [quickSongMessage, setQuickSongMessage] = useState<string | null>(null);
+  const [quickRecommendationMessage, setQuickRecommendationMessage] = useState<
+    string | null
+  >(null);
+  const [isSpotifyConnected, setIsSpotifyConnected] = useState<boolean | null>(
+    null
+  );
   const [quickError, setQuickError] = useState<string | null>(null);
   const [quickStatus, setQuickStatus] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -353,13 +393,125 @@ export default function DashboardHomePage() {
       .finally(() => setRecapLoading(false));
   }, [router, recapRange, recapRefreshKey]);
 
+  useEffect(() => {
+    getSpotifyStatus()
+      .then((status) => {
+        setIsSpotifyConnected(status.connected);
+        setQuickRecommendationMessage(
+          status.connected ? "Write a little or search a song." : "Connect Spotify to get song picks."
+        );
+      })
+      .catch((err) => {
+        if (err instanceof ApiError && err.status === 401) {
+          router.push("/login");
+          return;
+        }
+
+        setIsSpotifyConnected(false);
+        setQuickRecommendationMessage("Connect Spotify to get song picks.");
+      });
+  }, [router]);
+
+  useEffect(() => {
+    const query = quickSongQuery.trim();
+
+    if (query.length < 2) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      searchSpotify(query, 6)
+        .then((results) => {
+          setQuickSpotifyResults(results);
+          setQuickSongMessage(results.length === 0 ? "No songs found." : null);
+        })
+        .catch((err) => {
+          if (err instanceof ApiError && err.status === 401) {
+            router.push("/login");
+            return;
+          }
+
+          setQuickSongMessage("We couldn't search Spotify.");
+        })
+        .finally(() => setIsQuickSongSearching(false));
+    }, 380);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [quickSongQuery, router]);
+
+  useEffect(() => {
+    const noteText = quickContent.trim();
+    const timeoutId = window.setTimeout(
+      () => {
+        if (isSpotifyConnected !== true) {
+          setQuickRecommendations([]);
+          setIsQuickRecommending(false);
+          return;
+        }
+
+        if (noteText.length < 20) {
+          setQuickRecommendations([]);
+          setIsQuickRecommending(false);
+          setQuickRecommendationMessage(
+            noteText
+              ? "Write a bit more for matches."
+              : "Write a little or search a song."
+          );
+          return;
+        }
+
+        setIsQuickRecommending(true);
+        setQuickRecommendationMessage(null);
+
+        getSpotifyRecommendations(noteText, 6)
+          .then((items) => {
+            setQuickRecommendations(items);
+            setQuickRecommendationMessage(
+              items.length === 0 ? "No recommendations yet." : null
+            );
+          })
+          .catch((err) => {
+            if (err instanceof ApiError && err.status === 401) {
+              router.push("/login");
+              return;
+            }
+
+            if (err instanceof ApiError && err.status === 409) {
+              setIsSpotifyConnected(false);
+              setQuickRecommendations([]);
+              setQuickRecommendationMessage("Connect Spotify to get song picks.");
+              return;
+            }
+
+            if (err instanceof ApiError && err.status === 429) {
+              setQuickRecommendationMessage(
+                "Please wait before asking for more picks."
+              );
+              return;
+            }
+
+            setQuickRecommendationMessage("We couldn't load song picks.");
+          })
+          .finally(() => setIsQuickRecommending(false));
+      },
+      isSpotifyConnected === true && noteText.length >= 20 ? 900 : 0
+    );
+
+    return () => window.clearTimeout(timeoutId);
+  }, [isSpotifyConnected, quickContent, router]);
+
   const sortedNotes = useMemo(() => {
     return [...notes].sort((a, b) => getNoteTime(b) - getNoteTime(a));
   }, [notes]);
 
+  const privateNotes = useMemo(
+    () => sortedNotes.filter((note) => !isQuickNote(note)),
+    [sortedNotes]
+  );
+
   const visibleNotes = useMemo(() => {
-    return sortedNotes.slice(0, visibleCount);
-  }, [sortedNotes, visibleCount]);
+    return privateNotes.slice(0, visibleCount);
+  }, [privateNotes, visibleCount]);
 
   const groupedNotes = useMemo(() => {
     const groups = new Map<string, NoteItem[]>();
@@ -408,12 +560,24 @@ export default function DashboardHomePage() {
 
   const notesCountLabel = notesLoading
     ? "Loading..."
-    : `${notes.length} ${notes.length === 1 ? "note" : "notes"}`;
+    : `${privateNotes.length} ${privateNotes.length === 1 ? "note" : "notes"}`;
 
   const profileName = username || "Your profile";
   const profileInitials = username ? getInitials(username) : "NB";
   const profileHandle = getUserHandle(profileName);
-  const feedNotes = useMemo(() => sortedNotes.slice(0, 8), [sortedNotes]);
+  const feedNotes = useMemo(
+    () => sortedNotes.filter((note) => isQuickNote(note)).slice(0, 8),
+    [sortedNotes]
+  );
+  const hasQuickSearch = quickSongQuery.trim().length >= 2;
+  const quickPanelTracks = hasQuickSearch
+    ? quickSpotifyResults
+    : quickRecommendations;
+  const quickPanelMessage = hasQuickSearch
+    ? quickSongMessage
+    : quickRecommendationMessage;
+  const canPostQuick =
+    quickContent.trim().length > 0 || Boolean(quickSelectedTrack);
 
   const avgIntensityLabel = useMemo(() => {
     if (!stats) {
@@ -453,6 +617,54 @@ export default function DashboardHomePage() {
     setQuickContent(limitQuickNoteText(event.target.value));
     setQuickStatus(null);
     setQuickError(null);
+  };
+
+  const handleQuickSongQueryChange = (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const value = event.target.value;
+    const query = value.trim();
+
+    setQuickSongQuery(value);
+    setQuickStatus(null);
+    setQuickError(null);
+
+    if (!query) {
+      setQuickSpotifyResults([]);
+      setQuickSongMessage(null);
+      setIsQuickSongSearching(false);
+      return;
+    }
+
+    if (query.length < 2) {
+      setQuickSpotifyResults([]);
+      setQuickSongMessage("Type at least 2 characters.");
+      setIsQuickSongSearching(false);
+      return;
+    }
+
+    setIsQuickSongSearching(true);
+    setQuickSongMessage(null);
+  };
+
+  const handleQuickTrackSelect = (track: SpotifyTrack) => {
+    setQuickSelectedTrack(track);
+    setQuickSongQuery("");
+    setQuickSpotifyResults([]);
+    setQuickSongMessage("Song attached.");
+    setQuickStatus(null);
+    setQuickError(null);
+    setIsQuickSongSearching(false);
+  };
+
+  const handleQuickTrackClear = () => {
+    setQuickSelectedTrack(null);
+    setQuickSongMessage(null);
+    setQuickError(null);
+  };
+
+  const handleQuickConnectSpotify = () => {
+    window.location.href = `${API_BASE}/spotify/login`;
   };
 
   const handleSendChat = async () => {
@@ -496,8 +708,8 @@ export default function DashboardHomePage() {
       return;
     }
 
-    if (!quickContent.trim()) {
-      setQuickError("Write something before saving.");
+    if (!canPostQuick) {
+      setQuickError("Write something or attach a song before posting.");
       return;
     }
 
@@ -507,12 +719,25 @@ export default function DashboardHomePage() {
 
     try {
       const created = await createNote({
-        title: getQuickNoteTitle(quickContent),
+        title: QUICK_NOTE_TITLE,
         content: quickContent.trim(),
+        song: quickSelectedTrack
+          ? {
+              title: quickSelectedTrack.title,
+              artist: quickSelectedTrack.artist,
+              album: quickSelectedTrack.album || undefined,
+              spotify_id: quickSelectedTrack.id || undefined,
+              image_url: quickSelectedTrack.image_url ?? undefined,
+            }
+          : null,
       });
       setNotes((prev) => [created, ...prev]);
       setQuickContent("");
-      setQuickStatus("Saved to notes.");
+      setQuickSongQuery("");
+      setQuickSpotifyResults([]);
+      setQuickSelectedTrack(null);
+      setQuickSongMessage(null);
+      setQuickStatus("Posted to feed.");
       setRecapLoading(true);
       setRecapError(null);
       setRecapRefreshKey((prev) => prev + 1);
@@ -531,7 +756,7 @@ export default function DashboardHomePage() {
   const handleFullNoteCreated = (created: NoteItem) => {
     setNotes((prev) => [created, ...prev]);
     setIsFullEditorOpen(false);
-    setQuickStatus("Saved to notes.");
+    setQuickStatus("Saved to private notes.");
     setRecapLoading(true);
     setRecapError(null);
     setRecapRefreshKey((prev) => prev + 1);
@@ -569,14 +794,14 @@ export default function DashboardHomePage() {
       return;
     }
 
-    if (visibleCount >= sortedNotes.length) {
+    if (visibleCount >= privateNotes.length) {
       return;
     }
 
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0]?.isIntersecting) {
-          setVisibleCount((prev) => Math.min(prev + 4, sortedNotes.length));
+          setVisibleCount((prev) => Math.min(prev + 4, privateNotes.length));
         }
       },
       { rootMargin: "120px" }
@@ -585,7 +810,7 @@ export default function DashboardHomePage() {
     observer.observe(loadMoreRef.current);
 
     return () => observer.disconnect();
-  }, [sortedNotes.length, visibleCount]);
+  }, [privateNotes.length, visibleCount]);
 
   const handleLogout = async () => {
     if (isLoggingOut) {
@@ -691,14 +916,16 @@ export default function DashboardHomePage() {
                         >
                           <h4 className="home-note-title">{title}</h4>
                           <p className="home-note-meta">{getNoteDateLabel(note)}</p>
-                          <p className="home-note-excerpt">{excerpt}</p>
+                          {excerpt && (
+                            <p className="home-note-excerpt">{excerpt}</p>
+                          )}
                         </button>
                       );
                     })}
                   </div>
                 </div>
               ))}
-              {visibleCount < sortedNotes.length && (
+              {visibleCount < privateNotes.length && (
                 <div className="home-load-more" ref={loadMoreRef}>
                   Loading more notes...
                 </div>
@@ -725,20 +952,131 @@ export default function DashboardHomePage() {
 
         <div className="home-quick-note">
           <form onSubmit={handleQuickSave} className="home-quick-form">
-            <div className="home-quick-editor">
-              <textarea
-                id="quick-content"
-                value={quickContent}
-                onChange={handleQuickContentChange}
-                className="home-quick-textarea"
-                rows={5}
-                placeholder="How do you feel today?"
-                aria-label="Quick note"
-                maxLength={MAX_QUICK_NOTE_CHARS}
-                required
-              />
-              <div className="home-quick-count">
-                {quickContent.length}/{MAX_QUICK_NOTE_CHARS}
+            <div className="home-quick-compose-grid">
+              <div className="home-quick-editor">
+                <textarea
+                  id="quick-content"
+                  value={quickContent}
+                  onChange={handleQuickContentChange}
+                  className="home-quick-textarea"
+                  rows={5}
+                  placeholder="What's playing in your head?"
+                  aria-label="Quick note"
+                  maxLength={MAX_QUICK_NOTE_CHARS}
+                />
+                <div className="home-quick-count">
+                  {quickContent.length}/{MAX_QUICK_NOTE_CHARS}
+                </div>
+              </div>
+
+              <aside className="home-quick-recs" aria-label="Song picks">
+                <div className="home-quick-recs-header">
+                  <p className="home-quick-recs-title">
+                    {hasQuickSearch ? "Search results" : "Recommended"}
+                  </p>
+                  {isSpotifyConnected === false && (
+                    <button
+                      type="button"
+                      className="home-quick-link"
+                      onClick={handleQuickConnectSpotify}
+                    >
+                      Connect
+                    </button>
+                  )}
+                </div>
+
+                {isQuickSongSearching && hasQuickSearch && (
+                  <p className="home-quick-muted">Searching...</p>
+                )}
+
+                {isQuickRecommending && !hasQuickSearch && (
+                  <p className="home-quick-muted">Finding matches...</p>
+                )}
+
+                {quickPanelMessage && (
+                  <p className="home-quick-muted">{quickPanelMessage}</p>
+                )}
+
+                {quickPanelTracks.length > 0 && (
+                  <div className="home-quick-track-list">
+                    {quickPanelTracks.map((track, index) => (
+                      <button
+                        type="button"
+                        key={`quick-track-${track.id}-${index}`}
+                        className="home-quick-track"
+                        onClick={() => handleQuickTrackSelect(track)}
+                      >
+                        <span className="home-quick-track-art" aria-hidden="true">
+                          {track.image_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={track.image_url}
+                              alt=""
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            track.title.slice(0, 1)
+                          )}
+                        </span>
+                        <span className="home-quick-track-copy">
+                          <span className="home-quick-track-title">
+                            {track.title}
+                          </span>
+                          <span className="home-quick-track-meta">
+                            {track.artist}
+                            {track.album ? ` - ${track.album}` : ""}
+                          </span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </aside>
+
+              <div className="home-quick-song-panel">
+                {quickSelectedTrack && (
+                  <div className="home-quick-selected">
+                    <span className="home-quick-track-art" aria-hidden="true">
+                      {quickSelectedTrack.image_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={quickSelectedTrack.image_url}
+                          alt=""
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        quickSelectedTrack.title.slice(0, 1)
+                      )}
+                    </span>
+                    <span className="home-quick-track-copy">
+                      <span className="home-quick-track-title">
+                        {quickSelectedTrack.title}
+                      </span>
+                      <span className="home-quick-track-meta">
+                        {quickSelectedTrack.artist}
+                        {quickSelectedTrack.album
+                          ? ` - ${quickSelectedTrack.album}`
+                          : ""}
+                      </span>
+                    </span>
+                    <button
+                      type="button"
+                      className="home-quick-clear"
+                      onClick={handleQuickTrackClear}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                )}
+
+                <input
+                  id="quick-song-search"
+                  value={quickSongQuery}
+                  onChange={handleQuickSongQueryChange}
+                  className="home-quick-search-input"
+                  placeholder="Search a song"
+                  aria-label="Search song"
+                />
               </div>
             </div>
 
@@ -749,7 +1087,7 @@ export default function DashboardHomePage() {
               <button
                 type="submit"
                 className="home-quick-button"
-                disabled={isSaving}
+                disabled={isSaving || !canPostQuick}
               >
                 {isSaving ? "Saving..." : "Post"}
               </button>
@@ -780,14 +1118,16 @@ export default function DashboardHomePage() {
           {!notesLoading && !notesError && feedNotes.length > 0 && (
             <div className="home-feed-list">
               {feedNotes.map((note) => {
-                const phrase = getNotePreviewTitle(note);
-                const body = getNotePreviewExcerpt(note);
+                const body = note.content?.trim() ?? "";
                 const hasSong =
                   Boolean(note.song?.title?.trim()) &&
                   Boolean(note.song?.artist?.trim());
 
                 return (
-                  <article key={`feed-${note.id}`} className="feed-post">
+                  <article
+                    key={`feed-${note.id}`}
+                    className={`feed-post${!body && hasSong ? " is-song-only" : ""}`}
+                  >
                     <header className="feed-post-header">
                       <div className="feed-post-avatar" aria-hidden="true">
                         {profileInitials}
@@ -807,17 +1147,7 @@ export default function DashboardHomePage() {
                       </button>
                     </header>
 
-                    {phrase && phrase !== "Untitled note" && (
-                      <p className="feed-post-phrase">&quot;{phrase}&quot;</p>
-                    )}
-
-                    <p
-                      className={`feed-post-body${
-                        body === NOTE_EMPTY_CONTENT_LABEL ? " is-empty" : ""
-                      }`}
-                    >
-                      {body}
-                    </p>
+                    {body && <p className="feed-post-body">{body}</p>}
 
                     {hasSong && note.song && (
                       <div className="feed-post-song">

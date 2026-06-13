@@ -6,6 +6,11 @@ export interface SongPayload {
   image_url?: string;
 }
 
+export const QUICK_NOTE_TITLE = "__notebeat_quick_note__";
+
+export const isQuickNote = (note: { title?: string | null }) =>
+  note.title === QUICK_NOTE_TITLE;
+
 export interface SpotifyTrack {
   id: string;
   title: string;

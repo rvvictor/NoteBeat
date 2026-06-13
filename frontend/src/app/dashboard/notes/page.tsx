@@ -1,12 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ApiError, getNotes } from "@/lib/api";
-import { NoteItem } from "@/lib/notes";
+import { isQuickNote, NoteItem } from "@/lib/notes";
 import NoteComposer from "@/components/NoteComposer";
-
-const NOTE_EMPTY_CONTENT_LABEL = "No additional text";
 
 const getFirstContentLine = (value: string) =>
   value
@@ -23,7 +21,7 @@ const getNotePreviewContent = (note: NoteItem) => {
   const content = note.content?.trim();
 
   if (!content) {
-    return NOTE_EMPTY_CONTENT_LABEL;
+    return "";
   }
 
   const lines = content.replace(/\r\n/g, "\n").split("\n");
@@ -36,7 +34,7 @@ const getNotePreviewContent = (note: NoteItem) => {
       .slice(firstContentIndex + 1)
       .join("\n")
       .trim();
-    return remainingContent || NOTE_EMPTY_CONTENT_LABEL;
+    return remainingContent;
   }
 
   return content;
@@ -48,6 +46,11 @@ export default function NotesPage() {
   const [editingNote, setEditingNote] = useState<NoteItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const privateNotes = useMemo(
+    () => notes.filter((note) => !isQuickNote(note)),
+    [notes]
+  );
 
   useEffect(() => {
     getNotes()
@@ -105,11 +108,11 @@ export default function NotesPage() {
 
             {isLoading ? (
               <p className="form-helper mt-6">Loading...</p>
-            ) : notes.length === 0 ? (
+            ) : privateNotes.length === 0 ? (
               <p className="form-helper mt-6">No notes yet.</p>
             ) : (
               <div className="list-stack mt-6">
-                {notes.map((note) => (
+                {privateNotes.map((note) => (
                   <button
                     key={note.id}
                     type="button"
@@ -123,9 +126,11 @@ export default function NotesPage() {
                     <h3 className="text-lg font-semibold text-gray-900 mt-2">
                       {getNotePreviewTitle(note)}
                     </h3>
-                    <p className="text-gray-700 mt-2 whitespace-pre-line">
-                      {getNotePreviewContent(note)}
-                    </p>
+                    {getNotePreviewContent(note) && (
+                      <p className="text-gray-700 mt-2 whitespace-pre-line">
+                        {getNotePreviewContent(note)}
+                      </p>
+                    )}
                     {note.song && (
                       <div className="mt-3 text-sm text-gray-600">
                         <span className="font-semibold text-gray-800">

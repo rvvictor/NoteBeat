@@ -11,7 +11,7 @@ import {
   searchSpotify,
   updateNote,
 } from "@/lib/api";
-import { NoteItem, SpotifyTrack } from "@/lib/notes";
+import { isQuickNote, NoteItem, QUICK_NOTE_TITLE, SpotifyTrack } from "@/lib/notes";
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
@@ -79,6 +79,10 @@ const getInitialEditorFields = (note?: NoteItem | null) => {
     return { title: "", content: "" };
   }
 
+  if (isQuickNote(note)) {
+    return { title: "", content: note.content ?? "" };
+  }
+
   const storedTitle = note.title?.trim() ?? "";
   const storedContent = note.content ?? "";
 
@@ -109,6 +113,7 @@ export default function NoteComposer({
   const bodyRef = useRef<HTMLTextAreaElement | null>(null);
 
   const isEditing = Boolean(initialNote);
+  const isQuickEditing = initialNote ? isQuickNote(initialNote) : false;
   const initialEditorFields = getInitialEditorFields(initialNote);
 
   const [title, setTitle] = useState(initialEditorFields.title);
@@ -407,18 +412,22 @@ export default function NoteComposer({
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    const draft = getNoteDraft(title, content);
-
-    if (!draft) {
-      setError("Write something before saving.");
-      return;
-    }
-
     const hasSongData =
       songTitle.trim() ||
       songArtist.trim() ||
       songAlbum.trim() ||
       songSpotifyId.trim();
+
+    const draft = getNoteDraft(title, content);
+
+    if (!draft && !(isQuickEditing && hasSongData)) {
+      setError(
+        isQuickEditing
+          ? "Write something or add a song before saving."
+          : "Write something before saving."
+      );
+      return;
+    }
 
     if (hasSongData && (!songTitle.trim() || !songArtist.trim())) {
       setError("Song title and artist are required when adding a song.");
@@ -430,8 +439,8 @@ export default function NoteComposer({
 
     try {
       const payload = {
-        title: draft.title,
-        content: draft.content,
+        title: isQuickEditing ? QUICK_NOTE_TITLE : draft?.title ?? "",
+        content: draft?.content ?? content.trim(),
         song: hasSongData
           ? {
               title: songTitle.trim(),
@@ -480,16 +489,18 @@ export default function NoteComposer({
         className="composer-paper"
         aria-label={isEditing ? "Edit note" : "Write a note"}
       >
-        <input
-          id="note-title"
-          ref={titleRef}
-          value={title}
-          onChange={handleTitleChange}
-          onKeyDown={handleTitleKeyDown}
-          className="composer-title-input"
-          aria-label="First line"
-          autoFocus={!isEditing}
-        />
+        {!isQuickEditing && (
+          <input
+            id="note-title"
+            ref={titleRef}
+            value={title}
+            onChange={handleTitleChange}
+            onKeyDown={handleTitleKeyDown}
+            className="composer-title-input"
+            aria-label="First line"
+            autoFocus={!isEditing}
+          />
+        )}
         <textarea
           id="note-content"
           ref={bodyRef}
