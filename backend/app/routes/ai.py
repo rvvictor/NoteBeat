@@ -20,6 +20,9 @@ from collections import defaultdict
 from uuid import UUID
 
 router = APIRouter(tags=["AI"])
+QUICK_NOTE_TITLE = "__notebeat_quick_note__"
+THREAD_NOTE_TITLE = "__notebeat_thread_note__"
+FEED_NOTE_TITLES = {QUICK_NOTE_TITLE, THREAD_NOTE_TITLE}
 
 RECAP_RANGES = {
     "week": 7,
@@ -159,7 +162,11 @@ def _build_visibility_summary(notes):
 
     for note in notes:
         visibility = getattr(note, "visibility", "private")
-        if visibility in ["public", "friends", "shared"]:
+        if note.title in FEED_NOTE_TITLES or visibility in [
+            "public",
+            "friends",
+            "shared",
+        ]:
             shared_notes += 1
         else:
             private_notes += 1

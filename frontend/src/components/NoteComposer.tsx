@@ -11,7 +11,12 @@ import {
   searchSpotify,
   updateNote,
 } from "@/lib/api";
-import { isQuickNote, NoteItem, QUICK_NOTE_TITLE, SpotifyTrack } from "@/lib/notes";
+import {
+  isQuickNote,
+  NoteItem,
+  QUICK_NOTE_TITLE,
+  SpotifyTrack,
+} from "@/lib/notes";
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
@@ -137,6 +142,7 @@ export default function NoteComposer({
     null
   );
   const [recommendations, setRecommendations] = useState<SpotifyTrack[]>([]);
+  const [starterTracks, setStarterTracks] = useState<SpotifyTrack[]>([]);
   const [isRecommending, setIsRecommending] = useState(false);
   const [recommendationMessage, setRecommendationMessage] = useState<
     string | null
@@ -172,6 +178,28 @@ export default function NoteComposer({
         setIsSpotifyConnected(false);
         setRecommendationMessage("Connect Spotify to see recommendations.");
       });
+  }, [router]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    searchSpotify("global hits", 4)
+      .then((tracks) => {
+        if (!isActive) {
+          return;
+        }
+
+        setStarterTracks(tracks.filter((track) => track.image_url));
+      })
+      .catch((err) => {
+        if (err instanceof ApiError && err.status === 401) {
+          router.push("/login");
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
   }, [router]);
 
   useEffect(() => {
@@ -253,6 +281,10 @@ export default function NoteComposer({
   const previewProgress = previewDuration
     ? Math.min(previewTime / previewDuration, 1)
     : 0;
+  const visibleRecommendations =
+    recommendations.length > 0 ? recommendations : starterTracks;
+  const showingStarterTracks =
+    recommendations.length === 0 && starterTracks.length > 0;
 
   const updateRecommendationState = (nextTitle: string, nextContent: string) => {
     if (isSpotifyConnected === false) {
@@ -548,9 +580,9 @@ export default function NoteComposer({
           <p className="composer-helper">Finding a song for this note...</p>
         )}
 
-        {recommendations.length > 0 && (
+        {visibleRecommendations.length > 0 && (
           <div className="composer-track-list">
-            {recommendations.map((track, index) => (
+            {visibleRecommendations.map((track, index) => (
               <button
                 type="button"
                 key={`rec-${track.id ?? "unknown"}-${index}`}
@@ -575,6 +607,9 @@ export default function NoteComposer({
                     {track.artist}
                     {track.album ? ` - ${track.album}` : ""}
                   </p>
+                  {showingStarterTracks && (
+                    <p className="composer-track-badge">Quick pick</p>
+                  )}
                 </div>
               </button>
             ))}

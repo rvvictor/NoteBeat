@@ -16,10 +16,55 @@ from app.models.user_follow import UserFollow
 from app.models.note_emotions import NoteEmotion
 from app.services.ai.emotions import analyze_and_store_emotions_for_note
 from app.services.deps import get_current_user
+from app.services.song_covers import build_song, enrich_song_payload
 
 router = APIRouter()
 QUICK_NOTE_TITLE = "__notebeat_quick_note__"
+THREAD_NOTE_TITLE = "__notebeat_thread_note__"
+FEED_NOTE_TITLES = (QUICK_NOTE_TITLE, THREAD_NOTE_TITLE)
 INTERACTION_KINDS = {"like", "save", "repost"}
+
+
+def build_song_or_reject(song_data) -> Song:
+    song = build_song(song_data)
+    if not song.image_url:
+        raise HTTPException(
+            status_code=400,
+            detail="Song cover is required. Choose a Spotify result with cover art.",
+        )
+
+    return song
+
+
+def ensure_existing_song_cover_or_reject(db: Session, song_id: UUID) -> Song:
+    song = db.query(Song).filter(Song.id == song_id).first()
+    if not song:
+        raise HTTPException(status_code=404, detail="Song not found")
+
+    if song.image_url:
+        return song
+
+    payload = enrich_song_payload(
+        {
+            "title": song.title,
+            "artist": song.artist,
+            "album": song.album,
+            "spotify_id": song.spotify_id,
+            "image_url": song.image_url,
+        }
+    )
+
+    if not payload.get("image_url"):
+        raise HTTPException(
+            status_code=400,
+            detail="Song cover is required. Choose a Spotify result with cover art.",
+        )
+
+    song.image_url = payload["image_url"]
+    song.spotify_id = song.spotify_id or payload.get("spotify_id")
+    song.album = song.album or payload.get("album")
+    db.add(song)
+    return song
 
 
 def get_following_ids(db: Session, user_id: UUID) -> set[UUID]:
@@ -86,7 +131,7 @@ def list_feed_notes(
     query = (
         db.query(Note)
         .options(joinedload(Note.song), joinedload(Note.user))
-        .filter(Note.title == QUICK_NOTE_TITLE, Note.user_id != current_user.id)
+        .filter(Note.title.in_(FEED_NOTE_TITLES), Note.user_id != current_user.id)
     )
 
     if following_ids:
@@ -146,7 +191,7 @@ def update_note_interaction(
     note = (
         db.query(Note)
         .options(joinedload(Note.song), joinedload(Note.user))
-        .filter(Note.id == note_id, Note.title == QUICK_NOTE_TITLE)
+        .filter(Note.id == note_id, Note.title.in_(FEED_NOTE_TITLES))
         .first()
     )
 
@@ -223,17 +268,13 @@ async def create_note(
     song_id = note_data.song_id
 
     if note_data.song is not None:
-        new_song = Song(
-            title=note_data.song.title,
-            artist=note_data.song.artist,
-            album=note_data.song.album,
-            spotify_id=note_data.song.spotify_id,
-            image_url=note_data.song.image_url
-        )
+        new_song = build_song_or_reject(note_data.song)
         db.add(new_song)
         db.commit()
         db.refresh(new_song)
         song_id = new_song.id
+    elif song_id is not None:
+        ensure_existing_song_cover_or_reject(db, song_id)
 
     new_note = Note(
         title=note_data.title,
@@ -277,19 +318,14 @@ def update_note(
         if song_payload is None:
             note.song_id = None
         else:
-            new_song = Song(
-                title=song_payload.get("title"),
-                artist=song_payload.get("artist"),
-                album=song_payload.get("album"),
-                spotify_id=song_payload.get("spotify_id"),
-                image_url=song_payload.get("image_url")
-            )
+            new_song = build_song_or_reject(song_payload)
             db.add(new_song)
             db.commit()
             db.refresh(new_song)
             note.song_id = new_song.id
 
     if "song_id" in payload and payload.get("song_id") is not None:
+        ensure_existing_song_cover_or_reject(db, payload.get("song_id"))
         note.song_id = payload.get("song_id")
 
     if "title" in payload:

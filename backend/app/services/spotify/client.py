@@ -179,6 +179,23 @@ def search_tracks(query: str, limit: int = 5):
     return results
 
 
+def get_track(track_id: str):
+    token = get_access_token()
+
+    try:
+        track = _request_json(
+            f"{API_BASE_URL}/tracks/{parse.quote(track_id)}",
+            token=token
+        )
+    except (error.HTTPError, error.URLError, TimeoutError):
+        return None
+
+    if not track or not track.get("id"):
+        return None
+
+    return _build_track_payload(track)
+
+
 def search_tracks_with_token(query: str, token: str, limit: int = 5):
     params = parse.urlencode({
         "q": query,

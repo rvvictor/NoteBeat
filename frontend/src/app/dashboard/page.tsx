@@ -25,11 +25,13 @@ import {
 } from "@/lib/api";
 import { UserProfile } from "@/lib/auth";
 import {
-  isQuickNote,
+  isFeedNote,
+  isThreadNote,
   NoteInteraction,
   NoteInteractionKind,
   NoteItem,
   QUICK_NOTE_TITLE,
+  THREAD_NOTE_TITLE,
   SpotifyTrack,
 } from "@/lib/notes";
 import { EmotionDashboard } from "@/lib/emotions";
@@ -52,6 +54,15 @@ const getNoteTime = (note: NoteItem) => {
   const date = new Date(getNoteDateValue(note));
   const time = date.getTime();
   return Number.isNaN(time) ? 0 : time;
+};
+
+const getDiscoverScore = (note: NoteItem) => {
+  const contentSignal = Math.min((note.content ?? "").trim().length, 1200) / 24;
+  const threadSignal = isThreadNote(note) ? 18 : 0;
+  const songSignal = note.song?.title ? 8 : 0;
+  const recencySignal = getNoteTime(note) / 1_000_000_000_000;
+
+  return contentSignal + threadSignal + songSignal + recencySignal;
 };
 
 const prioritizeFeedPosts = (items: NoteItem[]) =>
@@ -101,6 +112,7 @@ type ChatMessage = {
 };
 
 type CenterPanelView = "feed" | "profile";
+type FeedTab = "forYou" | "threads" | "discover";
 type ProfileTab = "posts" | "reposts" | "likes" | "saved";
 
 type ProfileFormState = {
@@ -109,6 +121,13 @@ type ProfileFormState = {
   bio: string;
   avatarUrl: string;
   coverUrl: string;
+};
+
+type ThreadDraft = {
+  sourceId: string;
+  title: string;
+  content: string;
+  song: NoteItem["song"] | null;
 };
 
 type MoodTheme = {
@@ -238,6 +257,7 @@ const getPrivateNoteTitle = (content: string) => {
 };
 
 const MAX_QUICK_NOTE_CHARS = 220;
+const MAX_THREAD_DRAFT_CHARS = 2800;
 const MAX_PROFILE_IMAGE_BYTES = 1_500_000;
 const DEFAULT_PROFILE_BIO = "Quick notes, songs, and small signals from the day.";
 
@@ -317,7 +337,7 @@ const getSongLabel = (note: NoteItem) => {
 };
 
 const getNotePreviewTitle = (note: NoteItem) => {
-  if (isQuickNote(note)) {
+  if (isFeedNote(note)) {
     return getFirstContentLine(note.content) || getSongLabel(note);
   }
 
@@ -413,6 +433,9 @@ export default function DashboardHomePage() {
   const [quickRecommendations, setQuickRecommendations] = useState<
     SpotifyTrack[]
   >([]);
+  const [quickStarterTracks, setQuickStarterTracks] = useState<SpotifyTrack[]>(
+    []
+  );
   const [quickSelectedTrack, setQuickSelectedTrack] =
     useState<SpotifyTrack | null>(null);
   const [isQuickSongSearching, setIsQuickSongSearching] = useState(false);
@@ -429,6 +452,7 @@ export default function DashboardHomePage() {
   const [isSaving, setIsSaving] = useState(false);
   const [centerPanelView, setCenterPanelView] =
     useState<CenterPanelView>("feed");
+  const [feedTab, setFeedTab] = useState<FeedTab>("forYou");
   const [profileTab, setProfileTab] = useState<ProfileTab>("posts");
   const [isQuickComposerOpen, setIsQuickComposerOpen] = useState(false);
   const [isProfileEditorOpen, setIsProfileEditorOpen] = useState(false);
@@ -438,6 +462,9 @@ export default function DashboardHomePage() {
   const [isProfileSaving, setIsProfileSaving] = useState(false);
   const [isFullEditorOpen, setIsFullEditorOpen] = useState(false);
   const [editingNote, setEditingNote] = useState<NoteItem | null>(null);
+  const [threadDraft, setThreadDraft] = useState<ThreadDraft | null>(null);
+  const [threadPublishError, setThreadPublishError] = useState<string | null>(null);
+  const [isThreadPublishing, setIsThreadPublishing] = useState(false);
   const [visibleCount, setVisibleCount] = useState(7);
   const [recapRange, setRecapRange] = useState<RecapRange>("week");
   const [recap, setRecap] = useState<RecapDashboard | null>(null);
@@ -558,6 +585,28 @@ export default function DashboardHomePage() {
   }, [router]);
 
   useEffect(() => {
+    let isActive = true;
+
+    searchSpotify("global hits", 4)
+      .then((tracks) => {
+        if (!isActive) {
+          return;
+        }
+
+        setQuickStarterTracks(tracks.filter((track) => track.image_url));
+      })
+      .catch((err) => {
+        if (err instanceof ApiError && err.status === 401) {
+          router.push("/login");
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [router]);
+
+  useEffect(() => {
     const query = quickSongQuery.trim();
 
     if (query.length < 2) {
@@ -650,7 +699,7 @@ export default function DashboardHomePage() {
   }, [notes]);
 
   const privateNotes = useMemo(
-    () => sortedNotes.filter((note) => !isQuickNote(note)),
+    () => sortedNotes.filter((note) => !isFeedNote(note)),
     [sortedNotes]
   );
 
@@ -718,7 +767,7 @@ export default function DashboardHomePage() {
   const profileAvatarUrl = currentUser?.avatar_url?.trim() ?? "";
   const profileCoverUrl = currentUser?.cover_url?.trim() ?? "";
   const ownPostNotes = useMemo(
-    () => sortedNotes.filter((note) => isQuickNote(note)).slice(0, 8),
+    () => sortedNotes.filter((note) => isFeedNote(note)).slice(0, 8),
     [sortedNotes]
   );
   const interactionMap = useMemo(() => {
@@ -797,13 +846,67 @@ export default function DashboardHomePage() {
     ],
     [profileSongPosts, stats?.summary.dominant_emotion]
   );
+  const forYouFeedNotes = useMemo(
+    () => publicFeedNotes.filter((note) => note.author?.is_followed),
+    [publicFeedNotes]
+  );
+  const threadFeedNotes = useMemo(
+    () => publicFeedNotes.filter((note) => isThreadNote(note)),
+    [publicFeedNotes]
+  );
+  const discoverFeedNotes = useMemo(
+    () =>
+      [...publicFeedNotes].sort(
+        (a, b) => getDiscoverScore(b) - getDiscoverScore(a)
+      ),
+    [publicFeedNotes]
+  );
+  const feedTabItems: {
+    id: FeedTab;
+    label: string;
+    detail: string;
+    notes: NoteItem[];
+  }[] = [
+    {
+      id: "forYou",
+      label: "Para ti",
+      detail: "Seguidos",
+      notes: forYouFeedNotes,
+    },
+    {
+      id: "threads",
+      label: "Hilos",
+      detail: "Notas largas",
+      notes: threadFeedNotes,
+    },
+    {
+      id: "discover",
+      label: "Descubrir",
+      detail: "Tendencias",
+      notes: discoverFeedNotes,
+    },
+  ];
+  const activeFeedTab =
+    feedTabItems.find((item) => item.id === feedTab) ?? feedTabItems[0];
+  const activeFeedEmptyCopy =
+    feedTab === "forYou"
+      ? "Sigue a más personas para llenar esta sección."
+      : feedTab === "threads"
+        ? "Todavía no hay hilos publicados."
+        : "No hay publicaciones para descubrir todavía.";
   const hasQuickSearch = quickSongQuery.trim().length >= 2;
   const quickPanelTracks = hasQuickSearch
     ? quickSpotifyResults
-    : quickRecommendations;
+    : quickRecommendations.length > 0
+      ? quickRecommendations
+      : quickStarterTracks;
   const quickPanelMessage = hasQuickSearch
     ? quickSongMessage
-    : quickRecommendationMessage;
+    : quickRecommendations.length > 0
+      ? quickRecommendationMessage
+      : quickStarterTracks.length > 0
+        ? null
+        : "Cargando picks con portada...";
   const canPostQuick =
     quickContent.trim().length > 0 || Boolean(quickSelectedTrack);
 
@@ -1359,6 +1462,86 @@ export default function DashboardHomePage() {
     setQuickError(null);
   };
 
+  const handleOpenThreadPublisher = (note: NoteItem) => {
+    const title = getNotePreviewTitle(note).slice(0, 120);
+    const content = (getNotePreviewExcerpt(note) || note.content || "")
+      .trim()
+      .slice(0, MAX_THREAD_DRAFT_CHARS);
+
+    setThreadDraft({
+      sourceId: note.id,
+      title,
+      content,
+      song: note.song ?? null,
+    });
+    setThreadPublishError(null);
+    setQuickStatus(null);
+    setQuickError(null);
+  };
+
+  const handleThreadDraftChange = (
+    field: keyof Pick<ThreadDraft, "title" | "content">,
+    value: string
+  ) => {
+    setThreadDraft((prev) => (prev ? { ...prev, [field]: value } : prev));
+    setThreadPublishError(null);
+  };
+
+  const handlePublishThread = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!threadDraft || isThreadPublishing) {
+      return;
+    }
+
+    const publicTitle = threadDraft.title.trim();
+    const publicContent = threadDraft.content.trim();
+
+    if (!publicTitle && !publicContent) {
+      setThreadPublishError("Escribe un titulo o fragmento para publicar el hilo.");
+      return;
+    }
+
+    setIsThreadPublishing(true);
+    setThreadPublishError(null);
+
+    try {
+      const created = await createNote({
+        title: THREAD_NOTE_TITLE,
+        content: [publicTitle, publicContent].filter(Boolean).join("\n\n"),
+        song: threadDraft.song
+          ? {
+              title: threadDraft.song.title,
+              artist: threadDraft.song.artist,
+              album: threadDraft.song.album || undefined,
+              spotify_id: threadDraft.song.spotify_id || undefined,
+              image_url: threadDraft.song.image_url || undefined,
+            }
+          : null,
+      });
+
+      setNotes((prev) => [created, ...prev]);
+      setThreadDraft(null);
+      setQuickStatus("Hilo publicado en tu perfil.");
+      setCenterPanelView("profile");
+      setProfileTab("posts");
+      setRecapLoading(true);
+      setRecapError(null);
+      setRecapRefreshKey((prev) => prev + 1);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        router.push("/login");
+        return;
+      }
+
+      setThreadPublishError(
+        getApiErrorMessage(err, "No pudimos publicar ese hilo.")
+      );
+    } finally {
+      setIsThreadPublishing(false);
+    }
+  };
+
   const handleNoteUpdated = (updated: NoteItem) => {
     setNotes((prev) =>
       prev.map((note) => (note.id === updated.id ? updated : note))
@@ -1706,6 +1889,9 @@ export default function DashboardHomePage() {
 
   const renderPostCard = (note: NoteItem, variant: "feed" | "profile") => {
     const body = note.content?.trim() ?? "";
+    const isThread = isThreadNote(note);
+    const postTitle = isThread ? getNotePreviewTitle(note) : "";
+    const postBody = isThread ? getNotePreviewExcerpt(note) || body : body;
     const hasSong =
       Boolean(note.song?.title?.trim()) && Boolean(note.song?.artist?.trim());
     const isLiked = hasNoteInteraction(note.id, "like");
@@ -1726,7 +1912,9 @@ export default function DashboardHomePage() {
     return (
       <article
         key={`${variant}-${note.id}`}
-        className={`feed-post${!body && hasSong ? " is-song-only" : ""}${
+        className={`feed-post${!postBody && hasSong ? " is-song-only" : ""}${
+          isThread ? " is-thread" : ""
+        }${
           variant === "profile" ? " profile-post-card" : ""
         }`}
       >
@@ -1744,6 +1932,12 @@ export default function DashboardHomePage() {
             <p className="feed-post-meta">
               {authorHandle} - {getNoteDateLabel(note)}
             </p>
+            {isThread && (
+              <div className="feed-post-markers" aria-label="Post badges">
+                <span className="feed-thread-seal">Hilo NoteBeat</span>
+                <span className="feed-private-seal">de nota privada</span>
+              </div>
+            )}
           </div>
           {!isOwnPost && note.author && (
             <button
@@ -1760,7 +1954,18 @@ export default function DashboardHomePage() {
           )}
         </header>
 
-        {body && <p className="feed-post-body">{body}</p>}
+        {isThread && postTitle && (
+          <div className="feed-thread-heading">
+            <span className="feed-thread-kicker">Lectura larga</span>
+            <h3 className="feed-thread-title">{postTitle}</h3>
+          </div>
+        )}
+
+        {postBody && (
+          <p className={`feed-post-body${isThread ? " feed-thread-body" : ""}`}>
+            {postBody}
+          </p>
+        )}
 
         {hasSong && note.song && (
           <div className="feed-post-song">
@@ -1935,19 +2140,30 @@ export default function DashboardHomePage() {
                       const title = getNotePreviewTitle(note);
                       const excerpt = getNotePreviewExcerpt(note);
                       return (
-                        <button
+                        <article
                           key={note.id}
-                          type="button"
                           className="home-note-card"
-                          onClick={() => handleEditNoteClick(note)}
-                          aria-label={`Edit ${title}`}
                         >
-                          <h4 className="home-note-title">{title}</h4>
-                          <p className="home-note-meta">{getNoteDateLabel(note)}</p>
-                          {excerpt && (
-                            <p className="home-note-excerpt">{excerpt}</p>
-                          )}
-                        </button>
+                          <button
+                            type="button"
+                            className="home-note-card-main"
+                            onClick={() => handleEditNoteClick(note)}
+                            aria-label={`Edit ${title}`}
+                          >
+                            <h4 className="home-note-title">{title}</h4>
+                            <p className="home-note-meta">{getNoteDateLabel(note)}</p>
+                            {excerpt && (
+                              <p className="home-note-excerpt">{excerpt}</p>
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            className="home-note-thread-button"
+                            onClick={() => handleOpenThreadPublisher(note)}
+                          >
+                            Publicar hilo
+                          </button>
+                        </article>
                       );
                     })}
                   </div>
@@ -1969,47 +2185,43 @@ export default function DashboardHomePage() {
       >
         {centerPanelView === "feed" ? (
           <>
-            <button
-              type="button"
-              className="home-profile home-profile-trigger"
-              onClick={handleOpenProfile}
-              aria-label="View profile"
+            <nav
+              className="home-feed-tabs"
+              aria-label="Secciones del feed"
+              role="tablist"
             >
-              <div className="home-avatar" aria-hidden="true">
-                {profileInitials}
-              </div>
-              <div>
-                <p className="home-profile-label">Profile</p>
-                <p className="home-profile-name">{profileName}</p>
-                {userError && <p className="home-error">{userError}</p>}
-              </div>
-            </button>
-
-            <div className="home-quick-note">{renderQuickComposer()}</div>
-
+              {feedTabItems.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={feedTab === item.id}
+                  className={`home-feed-tab${feedTab === item.id ? " active" : ""}`}
+                  onClick={() => setFeedTab(item.id)}
+                >
+                  <span className="home-feed-tab-label">{item.label}</span>
+                  <span className="home-feed-tab-detail">{item.detail}</span>
+                </button>
+              ))}
+            </nav>
             <section className="home-feed">
-              <div className="home-feed-header">
-                <div>
-                  <p className="home-panel-kicker">Feed</p>
-                  <h2 className="home-feed-title">Community pulses</h2>
-                </div>
-              </div>
+              <div className="home-feed-composer">{renderQuickComposer()}</div>
 
               {publicFeedLoading && (
-                <div className="home-feed-empty">Loading posts...</div>
+                <div className="home-feed-empty">Cargando publicaciones...</div>
               )}
 
               {!publicFeedLoading && publicFeedError && (
                 <div className="home-error">{publicFeedError}</div>
               )}
 
-              {!publicFeedLoading && !publicFeedError && publicFeedNotes.length === 0 && (
-                <div className="home-feed-empty">No community posts yet.</div>
+              {!publicFeedLoading && !publicFeedError && activeFeedTab.notes.length === 0 && (
+                <div className="home-feed-empty">{activeFeedEmptyCopy}</div>
               )}
 
-              {!publicFeedLoading && !publicFeedError && publicFeedNotes.length > 0 && (
+              {!publicFeedLoading && !publicFeedError && activeFeedTab.notes.length > 0 && (
                 <div className="home-feed-list">
-                  {publicFeedNotes.map((note) => renderPostCard(note, "feed"))}
+                  {activeFeedTab.notes.map((note) => renderPostCard(note, "feed"))}
                 </div>
               )}
             </section>
@@ -2243,6 +2455,94 @@ export default function DashboardHomePage() {
               </button>
             </div>
             {renderQuickComposer()}
+          </div>
+        </div>
+      )}
+
+      {threadDraft && (
+        <div className="home-modal" role="dialog" aria-modal="true">
+          <div
+            className="home-modal-backdrop"
+            onClick={() => setThreadDraft(null)}
+          />
+          <div className="home-modal-card home-thread-modal-card">
+            <div className="home-editor-header">
+              <div>
+                <p className="home-panel-kicker">Hilo NoteBeat</p>
+                <h2 className="home-panel-title">Publicar desde una nota privada</h2>
+                <p className="home-panel-subtitle">
+                  Ajusta el fragmento publico. Tu nota original se queda privada.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="home-editor-close"
+                onClick={() => setThreadDraft(null)}
+              >
+                Close
+              </button>
+            </div>
+
+            <form className="home-thread-form" onSubmit={handlePublishThread}>
+              <label className="home-thread-field" htmlFor="thread-title">
+                <span>Titulo del hilo</span>
+                <input
+                  id="thread-title"
+                  value={threadDraft.title}
+                  onChange={(event) =>
+                    handleThreadDraftChange("title", event.target.value)
+                  }
+                  className="home-thread-input"
+                  maxLength={120}
+                />
+              </label>
+
+              <label className="home-thread-field" htmlFor="thread-content">
+                <span>Fragmento publico</span>
+                <textarea
+                  id="thread-content"
+                  value={threadDraft.content}
+                  onChange={(event) =>
+                    handleThreadDraftChange("content", event.target.value)
+                  }
+                  className="home-thread-textarea"
+                  rows={11}
+                  maxLength={MAX_THREAD_DRAFT_CHARS}
+                />
+              </label>
+
+              <div className="home-thread-meta">
+                <span>
+                  {threadDraft.content.length}/{MAX_THREAD_DRAFT_CHARS}
+                </span>
+                {threadDraft.song?.title && (
+                  <span>
+                    Beat adjunto: {threadDraft.song.title} - {threadDraft.song.artist}
+                  </span>
+                )}
+              </div>
+
+              {threadPublishError && (
+                <p className="form-error">{threadPublishError}</p>
+              )}
+
+              <div className="home-thread-actions">
+                <button
+                  type="button"
+                  className="home-editor-close"
+                  onClick={() => setThreadDraft(null)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="home-quick-button"
+                  disabled={isThreadPublishing}
+                >
+                  {isThreadPublishing ? "Publicando..." : "Publicar hilo"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
@@ -2552,6 +2852,27 @@ export default function DashboardHomePage() {
         className="home-panel home-stats-panel"
         style={{ animationDelay: "0.2s" }}
       >
+        <button
+          type="button"
+          className="home-profile home-profile-trigger home-profile-rail"
+          onClick={handleOpenProfile}
+          aria-label="View profile"
+        >
+          <div className="home-avatar" aria-hidden="true">
+            {profileAvatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={profileAvatarUrl} alt="" />
+            ) : (
+              profileInitials
+            )}
+          </div>
+          <div>
+            <p className="home-profile-label">Perfil NoteBeat</p>
+            <p className="home-profile-name">{profileName}</p>
+            {userError && <p className="home-error">{userError}</p>}
+          </div>
+        </button>
+
         <div className="home-stats-header">
           <div>
             <p className="home-panel-kicker">Dashboard</p>

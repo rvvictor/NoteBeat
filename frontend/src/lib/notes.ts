@@ -7,9 +7,16 @@ export interface SongPayload {
 }
 
 export const QUICK_NOTE_TITLE = "__notebeat_quick_note__";
+export const THREAD_NOTE_TITLE = "__notebeat_thread_note__";
 
 export const isQuickNote = (note: { title?: string | null }) =>
   note.title === QUICK_NOTE_TITLE;
+
+export const isThreadNote = (note: { title?: string | null }) =>
+  note.title === THREAD_NOTE_TITLE;
+
+export const isFeedNote = (note: { title?: string | null }) =>
+  isQuickNote(note) || isThreadNote(note);
 
 export interface SpotifyTrack {
   id: string;

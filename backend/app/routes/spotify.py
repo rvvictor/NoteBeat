@@ -76,13 +76,17 @@ def _consume_spotify_state(state: str) -> Optional[str]:
     return user_id
 
 
+def _tracks_with_cover(tracks: list):
+    return [track for track in tracks if track.get("image_url")]
+
+
 @router.get("/search")
 def search_spotify(q: str, limit: int = 5, user=Depends(get_current_user)):
     if not q.strip():
         raise HTTPException(status_code=400, detail="Query is required")
 
     try:
-        return {"items": search_tracks(q, limit=limit)}
+        return {"items": _tracks_with_cover(search_tracks(q, limit=limit))}
     except RuntimeError as exc:
         raise HTTPException(status_code=500, detail=str(exc))
     except Exception:
@@ -326,7 +330,7 @@ def spotify_recommendations(
         if artist_priority:
             recommendations = artist_priority[:limit]
             if len(recommendations) >= limit:
-                return {"items": recommendations}
+                return {"items": _tracks_with_cover(recommendations)}
 
         if mentioned_artist_id:
             seed_artists = [mentioned_artist_id]
@@ -372,7 +376,7 @@ def spotify_recommendations(
         seen = set()
         for track in recommendations:
             track_id = track.get("id")
-            if not track_id or track_id in seen:
+            if not track_id or track_id in seen or not track.get("image_url"):
                 continue
             seen.add(track_id)
             deduped.append(track)

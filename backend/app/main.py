@@ -1,7 +1,8 @@
 import os
 from fastapi import FastAPI
-from app.db.database import engine, Base
+from app.db.database import engine, Base, SessionLocal
 from app.db.migrations import ensure_user_profile_columns
+from app.services.song_covers import backfill_missing_song_covers
 from app.models import user
 from app.routes import auth
 from app.models import note
@@ -23,6 +24,15 @@ def root():
 
 Base.metadata.create_all(bind=engine)
 ensure_user_profile_columns(engine)
+
+if os.getenv("BACKFILL_SONG_COVERS_ON_STARTUP", "true").lower() == "true":
+    db = SessionLocal()
+    try:
+        backfill_missing_song_covers(db)
+    except Exception:
+        db.rollback()
+    finally:
+        db.close()
 
 raw_origins = os.getenv(
     "CORS_ORIGINS",
