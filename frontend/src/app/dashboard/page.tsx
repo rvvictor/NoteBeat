@@ -473,6 +473,7 @@ export default function DashboardHomePage() {
   const [recapRefreshKey, setRecapRefreshKey] = useState(0);
 
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isRecapOpen, setIsRecapOpen] = useState(false);
   const [chatQuestion, setChatQuestion] = useState("");
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatError, setChatError] = useState<string | null>(null);
@@ -1996,6 +1997,7 @@ export default function DashboardHomePage() {
           <button
             type="button"
             className={`feed-post-action${isLiked ? " active like" : ""}`}
+            aria-label="Like post"
             aria-pressed={isLiked}
             onClick={() => void handleToggleInteraction(note, "like")}
           >
@@ -2008,11 +2010,12 @@ export default function DashboardHomePage() {
                 strokeLinejoin="round"
               />
             </svg>
-            Like
+            <span className="feed-action-label">Like</span>
           </button>
           <button
             type="button"
             className={`feed-post-action${isReposted ? " active repost" : ""}`}
+            aria-label="Repost"
             aria-pressed={isReposted}
             onClick={() => void handleToggleInteraction(note, "repost")}
           >
@@ -2025,11 +2028,12 @@ export default function DashboardHomePage() {
                 strokeLinejoin="round"
               />
             </svg>
-            Repost
+            <span className="feed-action-label">Repost</span>
           </button>
           <button
             type="button"
             className={`feed-post-action${isSaved ? " active save" : ""}`}
+            aria-label="Save post"
             aria-pressed={isSaved}
             onClick={() => void handleToggleInteraction(note, "save")}
           >
@@ -2042,11 +2046,12 @@ export default function DashboardHomePage() {
                 strokeLinejoin="round"
               />
             </svg>
-            Save
+            <span className="feed-action-label">Save</span>
           </button>
           <button
             type="button"
             className="feed-post-action"
+            aria-label="Share post"
             onClick={() => void handleSharePost(note)}
           >
             <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
@@ -2057,10 +2062,148 @@ export default function DashboardHomePage() {
                 strokeLinecap="round"
               />
             </svg>
-            Share
+            <span className="feed-action-label">Share</span>
           </button>
         </footer>
       </article>
+    );
+  };
+
+  const renderRecapDetails = () => {
+    if (recapLoading) {
+      return <p className="home-empty">Loading recap...</p>;
+    }
+
+    if (recapError) {
+      return <p className="home-error">{recapError}</p>;
+    }
+
+    if (!recap || recap.summary.total_notes === 0) {
+      return <p className="home-empty">No data yet.</p>;
+    }
+
+    return (
+      <div className="home-recap-scroll no-scrollbar">
+        <section className="recap-hero-card">
+          <p className="recap-hero-kicker">Mood musical</p>
+          <h3 className="recap-hero-title">{recap.summary.music_mood}</h3>
+          <p className="recap-hero-copy">{recap.summary.narrative_summary}</p>
+          <p className="recap-hero-quote">{recap.summary.representative_phrase}</p>
+        </section>
+
+        <div className="recap-stat-strip">
+          <div>
+            <p className="recap-stat-number">{recap.summary.total_notes}</p>
+            <p className="recap-stat-label">Notes</p>
+          </div>
+          <div>
+            <p className="recap-stat-number">{recap.summary.notes_with_song}</p>
+            <p className="recap-stat-label">Songs</p>
+          </div>
+          <div>
+            <p className="recap-stat-number">{recap.summary.private_notes}</p>
+            <p className="recap-stat-label">Private</p>
+          </div>
+          <div>
+            <p className="recap-stat-number">{recap.summary.shared_notes}</p>
+            <p className="recap-stat-label">Shared</p>
+          </div>
+        </div>
+
+        <section className="recap-section">
+          <div className="recap-section-header">
+            <p className="home-recap-key">Top music moments</p>
+            <span className="recap-section-pill">{recap.range}</span>
+          </div>
+          <div className="home-recap-list">
+            {[
+              { label: "Song", item: recap.top_song, alt: "Song cover" },
+              { label: "Album", item: recap.top_album, alt: "Album art" },
+              { label: "Artist", item: recap.top_artist, alt: "Artist photo" },
+            ].map((entry) => (
+              <div key={entry.label} className="home-recap-item recap-music-item">
+                <div className="home-recap-art">
+                  {entry.item.image_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={entry.item.image_url}
+                      alt={entry.alt}
+                      className="home-recap-img"
+                    />
+                  ) : (
+                    <span className="home-recap-art-placeholder">No art</span>
+                  )}
+                </div>
+                <div className="home-recap-text">
+                  <p className="home-recap-key">{entry.label}</p>
+                  <p className="home-recap-value">{entry.item.label}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="recap-section">
+          <div className="recap-section-header">
+            <p className="home-recap-key">Emotion and rhythm</p>
+          </div>
+          <div className="recap-mini-grid">
+            <div className="recap-mini-card">
+              <p className="home-recap-key">Dominant emotion</p>
+              <p className="home-recap-value">
+                {recap.summary.dominant_emotion ?? "No data yet"}
+              </p>
+            </div>
+            <div className="recap-mini-card">
+              <p className="home-recap-key">Biggest shift</p>
+              <p className="home-recap-value">{getChangedEmotionLabel(recap)}</p>
+              <p className="recap-mini-copy">{getChangedEmotionMeta(recap)}</p>
+            </div>
+            <div className="recap-mini-card">
+              <p className="home-recap-key">Top day</p>
+              <p className="home-recap-value">{recap.activity.top_day.label}</p>
+              <p className="recap-mini-copy">{recap.activity.top_day.count} notes</p>
+            </div>
+            <div className="recap-mini-card">
+              <p className="home-recap-key">Top hour</p>
+              <p className="home-recap-value">{recap.activity.top_hour.label}</p>
+              <p className="recap-mini-copy">{recap.activity.top_hour.count} notes</p>
+            </div>
+          </div>
+        </section>
+
+        <section className="recap-section">
+          <div className="recap-section-header">
+            <p className="home-recap-key">Songs by feeling</p>
+          </div>
+          <div className="home-recap-list">
+            {[
+              { label: "When happy", item: recap.songs_by_emotion.happy },
+              { label: "When sad", item: recap.songs_by_emotion.sad },
+              { label: "When anxious", item: recap.songs_by_emotion.anxious },
+            ].map((entry) => (
+              <div key={entry.label} className="home-recap-item">
+                <div className="home-recap-art">
+                  {entry.item.image_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={entry.item.image_url}
+                      alt={`${entry.label} song cover`}
+                      className="home-recap-img"
+                    />
+                  ) : (
+                    <span className="home-recap-art-placeholder">No art</span>
+                  )}
+                </div>
+                <div className="home-recap-text">
+                  <p className="home-recap-key">{entry.label}</p>
+                  <p className="home-recap-value">{entry.item.label}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
     );
   };
 
@@ -2087,21 +2230,6 @@ export default function DashboardHomePage() {
         <div className="home-notes-header">
           <p className="home-notes-title">Notes</p>
           <p className="home-notes-count">{notesCountLabel}</p>
-          <button
-            type="button"
-            className="home-chat-button"
-            onClick={handleOpenChat}
-            aria-label="Open AI chat"
-          >
-            <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
-              <path
-                d="M5 15.5l-0.9 3L7 16.5h6.1c2 0 3.6-1.6 3.6-3.6V7.1C16.7 5.1 15.1 3.5 13.1 3.5H6.5C4.6 3.5 3 5.1 3 7.1v4.8c0 1.8 1.2 3.3 2.9 3.6z"
-                stroke="currentColor"
-                strokeWidth="1.4"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </button>
           <button
             type="button"
             className="home-add-note"
@@ -2159,9 +2287,10 @@ export default function DashboardHomePage() {
                           <button
                             type="button"
                             className="home-note-thread-button"
+                            aria-label={`Publicar ${title} como hilo`}
                             onClick={() => handleOpenThreadPublisher(note)}
                           >
-                            Publicar hilo
+                            Hilo
                           </button>
                         </article>
                       );
@@ -2788,6 +2917,54 @@ export default function DashboardHomePage() {
         </div>
       )}
 
+      {isRecapOpen && (
+        <div className="home-modal" role="dialog" aria-modal="true">
+          <div
+            className="home-modal-backdrop"
+            onClick={() => setIsRecapOpen(false)}
+          />
+          <div className="home-modal-card home-recap-modal-card">
+            <div className="home-editor-header">
+              <div>
+                <p className="home-panel-kicker">Recap</p>
+                <h2 className="home-panel-title">Your NoteBeat pulse</h2>
+                <p className="home-panel-subtitle">
+                  The full pattern is still here, just one layer deeper.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="home-editor-close"
+                onClick={() => setIsRecapOpen(false)}
+              >
+                Close
+              </button>
+            </div>
+
+            <div
+              className="home-recap-switch home-recap-switch-modal"
+              role="tablist"
+              aria-label="Recap range"
+            >
+              {recapRangeOptions.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  className={`home-recap-tab${recapRange === option.id ? " active" : ""}`}
+                  onClick={() => handleRecapRangeChange(option.id)}
+                  role="tab"
+                  aria-selected={recapRange === option.id}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+
+            {renderRecapDetails()}
+          </div>
+        </div>
+      )}
+
       {isFullEditorOpen && (
         <div className="home-modal" role="dialog" aria-modal="true">
           <div
@@ -2873,51 +3050,86 @@ export default function DashboardHomePage() {
           </div>
         </button>
 
-        <div className="home-stats-header">
-          <div>
-            <p className="home-panel-kicker">Dashboard</p>
-            <h2 className="home-panel-title">Your emotion pulse</h2>
-          </div>
-          <button
-            type="button"
-            onClick={handleLogout}
-            disabled={isLoggingOut}
-            className="home-logout"
-          >
-            {isLoggingOut ? "Signing out..." : "Sign out"}
-          </button>
-        </div>
-
-        {logoutError && <p className="home-error">{logoutError}</p>}
-
-        <div className="home-hero-mood" style={moodPanelStyle}>
-          <div>
-            <p className="home-stat-label">Dominant mood</p>
-            <p className="home-hero-mood-value capitalize">
-              {statsLoading || !stats ? "--" : stats.summary.dominant_emotion}
-            </p>
-          </div>
-          <div className="home-hero-mood-meta">
-            <div>
-              <p className="home-stat-label">Intensity</p>
-              <p className="home-hero-mood-number">{avgIntensityLabel}</p>
+        <div className="home-rail-stack">
+          <section className="home-rail-card home-rail-card-hero">
+            <div className="home-rail-card-header">
+              <div>
+                <p className="home-panel-kicker">Today</p>
+                <h2 className="home-panel-title">Pulse</h2>
+              </div>
+              <span className="home-rail-badge">Live</span>
             </div>
-            <div>
-              <p className="home-stat-label">Entries</p>
-              <p className="home-hero-mood-number">
-                {statsLoading || !stats ? "--" : stats.summary.total_entries}
+
+            <div className="home-hero-mood" style={moodPanelStyle}>
+              <div>
+                <p className="home-stat-label">Dominant mood</p>
+                <p className="home-hero-mood-value capitalize">
+                  {statsLoading || !stats ? "--" : stats.summary.dominant_emotion}
+                </p>
+              </div>
+              <div className="home-hero-mood-meta">
+                <div>
+                  <p className="home-stat-label">Intensity</p>
+                  <p className="home-hero-mood-number">{avgIntensityLabel}</p>
+                </div>
+                <div>
+                  <p className="home-stat-label">Entries</p>
+                  <p className="home-hero-mood-number">
+                    {statsLoading || !stats ? "--" : stats.summary.total_entries}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {statsError && <p className="home-error">{statsError}</p>}
+          </section>
+
+          <section className="home-rail-card home-rail-action-card">
+            <div className="home-rail-action-icon" aria-hidden="true">
+              <svg viewBox="0 0 20 20" fill="none">
+                <path
+                  d="M5 15.4 4.2 18 6.8 16.4h6.1c2 0 3.7-1.6 3.7-3.7V7.2c0-2-1.7-3.7-3.7-3.7H6.7C4.6 3.5 3 5.2 3 7.2v5.5c0 1.4.8 2.3 2 2.7z"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M7.2 8.1h5.7M7.2 11h3.6"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </div>
+            <div className="home-rail-action-copy">
+              <p className="home-panel-kicker">AI companion</p>
+              <h3 className="home-rail-card-title">Talk with your notes</h3>
+              <p className="home-rail-card-copy">
+                Ask for patterns, context, or a softer read of your recent entries.
               </p>
             </div>
-          </div>
-        </div>
+            <button
+              type="button"
+              className="home-rail-action-button"
+              onClick={handleOpenChat}
+            >
+              Open chat
+            </button>
+          </section>
 
-        {statsError && <p className="home-error">{statsError}</p>}
-
-        <div className="home-recap-panel">
-          <div className="home-recap-header">
-            <div>
-              <p className="home-stat-label">Recap</p>
-              <p className="home-recap-title">Your NoteBeat pulse</p>
+          <section className="home-recap-panel home-recap-compact">
+            <div className="home-recap-header">
+              <div>
+                <p className="home-stat-label">Recap</p>
+                <p className="home-recap-title">NoteBeat pulse</p>
+              </div>
+              <button
+                type="button"
+                className="home-rail-link-button"
+                onClick={() => setIsRecapOpen(true)}
+              >
+                View
+              </button>
             </div>
             <div
               className="home-recap-switch"
@@ -2937,137 +3149,65 @@ export default function DashboardHomePage() {
                 </button>
               ))}
             </div>
-          </div>
 
-          {recapLoading ? (
-            <p className="home-empty">Loading recap...</p>
-          ) : recapError ? (
-            <p className="home-error">{recapError}</p>
-          ) : !recap || recap.summary.total_notes === 0 ? (
-            <p className="home-empty">No data yet.</p>
-          ) : (
-            <div className="home-recap-scroll no-scrollbar">
-              <section className="recap-hero-card">
-                <p className="recap-hero-kicker">Mood musical</p>
-                <h3 className="recap-hero-title">{recap.summary.music_mood}</h3>
-                <p className="recap-hero-copy">{recap.summary.narrative_summary}</p>
-                <p className="recap-hero-quote">{recap.summary.representative_phrase}</p>
-              </section>
-
-              <div className="recap-stat-strip">
-                <div>
-                  <p className="recap-stat-number">{recap.summary.total_notes}</p>
-                  <p className="recap-stat-label">Notes</p>
+            {recapLoading ? (
+              <p className="home-empty">Loading recap...</p>
+            ) : recapError ? (
+              <p className="home-error">{recapError}</p>
+            ) : !recap || recap.summary.total_notes === 0 ? (
+              <p className="home-empty">No data yet.</p>
+            ) : (
+              <div className="home-recap-brief">
+                <p className="home-recap-brief-title">{recap.summary.music_mood}</p>
+                <p className="home-recap-brief-copy">
+                  {recap.summary.representative_phrase}
+                </p>
+                <div className="home-recap-brief-song">
+                  <div className="home-recap-art">
+                    {recap.top_song.image_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={recap.top_song.image_url}
+                        alt="Top song cover"
+                        className="home-recap-img"
+                      />
+                    ) : (
+                      <span className="home-recap-art-placeholder">No art</span>
+                    )}
+                  </div>
+                  <div className="home-recap-text">
+                    <p className="home-recap-key">Top song</p>
+                    <p className="home-recap-value">{recap.top_song.label}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="recap-stat-number">{recap.summary.notes_with_song}</p>
-                  <p className="recap-stat-label">Songs</p>
-                </div>
-                <div>
-                  <p className="recap-stat-number">{recap.summary.private_notes}</p>
-                  <p className="recap-stat-label">Private</p>
-                </div>
-                <div>
-                  <p className="recap-stat-number">{recap.summary.shared_notes}</p>
-                  <p className="recap-stat-label">Shared</p>
+                <div className="home-recap-brief-stats">
+                  <span>
+                    <strong>{recap.summary.total_notes}</strong>
+                    <small>notes</small>
+                  </span>
+                  <span>
+                    <strong>{recap.summary.notes_with_song}</strong>
+                    <small>songs</small>
+                  </span>
+                  <span>
+                    <strong>{recap.summary.shared_notes}</strong>
+                    <small>shared</small>
+                  </span>
                 </div>
               </div>
+            )}
+          </section>
 
-              <section className="recap-section">
-                <div className="recap-section-header">
-                  <p className="home-recap-key">Top music moments</p>
-                  <span className="recap-section-pill">{recap.range}</span>
-                </div>
-                <div className="home-recap-list">
-                  {[
-                    { label: "Song", item: recap.top_song, alt: "Song cover" },
-                    { label: "Album", item: recap.top_album, alt: "Album art" },
-                    { label: "Artist", item: recap.top_artist, alt: "Artist photo" },
-                  ].map((entry) => (
-                    <div key={entry.label} className="home-recap-item recap-music-item">
-                      <div className="home-recap-art">
-                        {entry.item.image_url ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={entry.item.image_url}
-                            alt={entry.alt}
-                            className="home-recap-img"
-                          />
-                        ) : (
-                          <span className="home-recap-art-placeholder">No art</span>
-                        )}
-                      </div>
-                      <div className="home-recap-text">
-                        <p className="home-recap-key">{entry.label}</p>
-                        <p className="home-recap-value">{entry.item.label}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
+          {logoutError && <p className="home-error">{logoutError}</p>}
 
-              <section className="recap-section">
-                <div className="recap-section-header">
-                  <p className="home-recap-key">Emotion and rhythm</p>
-                </div>
-                <div className="recap-mini-grid">
-                  <div className="recap-mini-card">
-                    <p className="home-recap-key">Dominant emotion</p>
-                    <p className="home-recap-value">
-                      {recap.summary.dominant_emotion ?? "No data yet"}
-                    </p>
-                  </div>
-                  <div className="recap-mini-card">
-                    <p className="home-recap-key">Biggest shift</p>
-                    <p className="home-recap-value">{getChangedEmotionLabel(recap)}</p>
-                    <p className="recap-mini-copy">{getChangedEmotionMeta(recap)}</p>
-                  </div>
-                  <div className="recap-mini-card">
-                    <p className="home-recap-key">Top day</p>
-                    <p className="home-recap-value">{recap.activity.top_day.label}</p>
-                    <p className="recap-mini-copy">{recap.activity.top_day.count} notes</p>
-                  </div>
-                  <div className="recap-mini-card">
-                    <p className="home-recap-key">Top hour</p>
-                    <p className="home-recap-value">{recap.activity.top_hour.label}</p>
-                    <p className="recap-mini-copy">{recap.activity.top_hour.count} notes</p>
-                  </div>
-                </div>
-              </section>
-
-              <section className="recap-section">
-                <div className="recap-section-header">
-                  <p className="home-recap-key">Songs by feeling</p>
-                </div>
-                <div className="home-recap-list">
-                  {[
-                    { label: "When happy", item: recap.songs_by_emotion.happy },
-                    { label: "When sad", item: recap.songs_by_emotion.sad },
-                    { label: "When anxious", item: recap.songs_by_emotion.anxious },
-                  ].map((entry) => (
-                    <div key={entry.label} className="home-recap-item">
-                      <div className="home-recap-art">
-                        {entry.item.image_url ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={entry.item.image_url}
-                            alt={`${entry.label} song cover`}
-                            className="home-recap-img"
-                          />
-                        ) : (
-                          <span className="home-recap-art-placeholder">No art</span>
-                        )}
-                      </div>
-                      <div className="home-recap-text">
-                        <p className="home-recap-key">{entry.label}</p>
-                        <p className="home-recap-value">{entry.item.label}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            </div>
-          )}
+          <button
+            type="button"
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+            className="home-logout home-logout-rail"
+          >
+            {isLoggingOut ? "Signing out..." : "Sign out"}
+          </button>
         </div>
       </section>
       </main>
