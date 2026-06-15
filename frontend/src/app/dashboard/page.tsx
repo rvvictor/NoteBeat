@@ -870,20 +870,20 @@ export default function DashboardHomePage() {
   }[] = [
     {
       id: "forYou",
-      label: "Para ti",
-      detail: "Seguidos",
+      label: "For you",
+      detail: "Following",
       notes: forYouFeedNotes,
     },
     {
       id: "threads",
-      label: "Hilos",
-      detail: "Notas largas",
+      label: "Threads",
+      detail: "Long notes",
       notes: threadFeedNotes,
     },
     {
       id: "discover",
-      label: "Descubrir",
-      detail: "Tendencias",
+      label: "Discover",
+      detail: "Trending",
       notes: discoverFeedNotes,
     },
   ];
@@ -891,10 +891,10 @@ export default function DashboardHomePage() {
     feedTabItems.find((item) => item.id === feedTab) ?? feedTabItems[0];
   const activeFeedEmptyCopy =
     feedTab === "forYou"
-      ? "Sigue a más personas para llenar esta sección."
+      ? "Follow more people to fill this section."
       : feedTab === "threads"
-        ? "Todavía no hay hilos publicados."
-        : "No hay publicaciones para descubrir todavía.";
+        ? "No threads have been published yet."
+        : "No discovery posts yet.";
   const hasQuickSearch = quickSongQuery.trim().length >= 2;
   const quickPanelTracks = hasQuickSearch
     ? quickSpotifyResults
@@ -907,7 +907,7 @@ export default function DashboardHomePage() {
       ? quickRecommendationMessage
       : quickStarterTracks.length > 0
         ? null
-        : "Cargando picks con portada...";
+        : "Loading songs with cover art...";
   const canPostQuick =
     quickContent.trim().length > 0 || Boolean(quickSelectedTrack);
 
@@ -1499,7 +1499,7 @@ export default function DashboardHomePage() {
     const publicContent = threadDraft.content.trim();
 
     if (!publicTitle && !publicContent) {
-      setThreadPublishError("Escribe un titulo o fragmento para publicar el hilo.");
+      setThreadPublishError("Write a title or excerpt before publishing the thread.");
       return;
     }
 
@@ -1523,7 +1523,7 @@ export default function DashboardHomePage() {
 
       setNotes((prev) => [created, ...prev]);
       setThreadDraft(null);
-      setQuickStatus("Hilo publicado en tu perfil.");
+      setQuickStatus("Thread published to your profile.");
       setCenterPanelView("profile");
       setProfileTab("posts");
       setRecapLoading(true);
@@ -1536,7 +1536,7 @@ export default function DashboardHomePage() {
       }
 
       setThreadPublishError(
-        getApiErrorMessage(err, "No pudimos publicar ese hilo.")
+        getApiErrorMessage(err, "We could not publish that thread.")
       );
     } finally {
       setIsThreadPublishing(false);
@@ -1935,8 +1935,8 @@ export default function DashboardHomePage() {
             </p>
             {isThread && (
               <div className="feed-post-markers" aria-label="Post badges">
-                <span className="feed-thread-seal">Hilo NoteBeat</span>
-                <span className="feed-private-seal">de nota privada</span>
+                <span className="feed-thread-seal">NoteBeat Thread</span>
+                <span className="feed-private-seal">from a private note</span>
               </div>
             )}
           </div>
@@ -1957,7 +1957,7 @@ export default function DashboardHomePage() {
 
         {isThread && postTitle && (
           <div className="feed-thread-heading">
-            <span className="feed-thread-kicker">Lectura larga</span>
+            <span className="feed-thread-kicker">Long read</span>
             <h3 className="feed-thread-title">{postTitle}</h3>
           </div>
         )}
@@ -2085,7 +2085,7 @@ export default function DashboardHomePage() {
     return (
       <div className="home-recap-scroll no-scrollbar">
         <section className="recap-hero-card">
-          <p className="recap-hero-kicker">Mood musical</p>
+          <p className="recap-hero-kicker">Music mood</p>
           <h3 className="recap-hero-title">{recap.summary.music_mood}</h3>
           <p className="recap-hero-copy">{recap.summary.narrative_summary}</p>
           <p className="recap-hero-quote">{recap.summary.representative_phrase}</p>
@@ -2287,10 +2287,10 @@ export default function DashboardHomePage() {
                           <button
                             type="button"
                             className="home-note-thread-button"
-                            aria-label={`Publicar ${title} como hilo`}
+                            aria-label={`Publish ${title} as a thread`}
                             onClick={() => handleOpenThreadPublisher(note)}
                           >
-                            Hilo
+                            Thread
                           </button>
                         </article>
                       );
@@ -2316,7 +2316,7 @@ export default function DashboardHomePage() {
           <>
             <nav
               className="home-feed-tabs"
-              aria-label="Secciones del feed"
+              aria-label="Feed sections"
               role="tablist"
             >
               {feedTabItems.map((item) => (
@@ -2337,7 +2337,7 @@ export default function DashboardHomePage() {
               <div className="home-feed-composer">{renderQuickComposer()}</div>
 
               {publicFeedLoading && (
-                <div className="home-feed-empty">Cargando publicaciones...</div>
+                <div className="home-feed-empty">Loading posts...</div>
               )}
 
               {!publicFeedLoading && publicFeedError && (
@@ -2597,10 +2597,10 @@ export default function DashboardHomePage() {
           <div className="home-modal-card home-thread-modal-card">
             <div className="home-editor-header">
               <div>
-                <p className="home-panel-kicker">Hilo NoteBeat</p>
-                <h2 className="home-panel-title">Publicar desde una nota privada</h2>
+                <p className="home-panel-kicker">NoteBeat Thread</p>
+                <h2 className="home-panel-title">Publish from a private note</h2>
                 <p className="home-panel-subtitle">
-                  Ajusta el fragmento publico. Tu nota original se queda privada.
+                  Edit the public excerpt. Your original note stays private.
                 </p>
               </div>
               <button
@@ -2614,7 +2614,7 @@ export default function DashboardHomePage() {
 
             <form className="home-thread-form" onSubmit={handlePublishThread}>
               <label className="home-thread-field" htmlFor="thread-title">
-                <span>Titulo del hilo</span>
+                <span>Thread title</span>
                 <input
                   id="thread-title"
                   value={threadDraft.title}
@@ -2627,7 +2627,7 @@ export default function DashboardHomePage() {
               </label>
 
               <label className="home-thread-field" htmlFor="thread-content">
-                <span>Fragmento publico</span>
+                <span>Public excerpt</span>
                 <textarea
                   id="thread-content"
                   value={threadDraft.content}
@@ -2646,7 +2646,7 @@ export default function DashboardHomePage() {
                 </span>
                 {threadDraft.song?.title && (
                   <span>
-                    Beat adjunto: {threadDraft.song.title} - {threadDraft.song.artist}
+                    Attached beat: {threadDraft.song.title} - {threadDraft.song.artist}
                   </span>
                 )}
               </div>
@@ -2668,7 +2668,7 @@ export default function DashboardHomePage() {
                   className="home-quick-button"
                   disabled={isThreadPublishing}
                 >
-                  {isThreadPublishing ? "Publicando..." : "Publicar hilo"}
+                  {isThreadPublishing ? "Publishing..." : "Publish thread"}
                 </button>
               </div>
             </form>
@@ -3044,7 +3044,7 @@ export default function DashboardHomePage() {
             )}
           </div>
           <div>
-            <p className="home-profile-label">Perfil NoteBeat</p>
+            <p className="home-profile-label">NoteBeat Profile</p>
             <p className="home-profile-name">{profileName}</p>
             {userError && <p className="home-error">{userError}</p>}
           </div>

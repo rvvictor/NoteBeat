@@ -2339,11 +2339,13 @@ a {
 
 .home-rail-stack {
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto auto auto;
   gap: 0.7rem;
   flex: 1;
   min-height: 0;
-  overflow: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 0.08rem;
 }
 
 .home-rail-card,
@@ -2722,9 +2724,10 @@ a {
 }
 
 .home-recap-compact {
-  flex: initial;
-  min-height: 0;
+  flex: 0 0 auto;
+  min-height: auto;
   padding: 0.72rem;
+  overflow: visible;
 }
 
 .home-recap-compact .home-recap-header {
@@ -2755,13 +2758,10 @@ a {
 
 .home-recap-brief-copy {
   color: #64748b;
-  display: -webkit-box;
+  display: block;
   font-size: 0.78rem;
   line-height: 1.42;
-  line-clamp: 3;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .home-recap-brief-song {
