@@ -244,3 +244,5 @@ The next UI iteration should simplify the dashboard before adding more features:
 - Treat hilos as a premium NoteBeat-native format with a dedicated reader.
 
 The goal is not to remove NoteBeat's depth. The goal is to reveal it in layers.
+
+Author: Victor Ruiz
