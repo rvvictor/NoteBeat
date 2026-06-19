@@ -246,3 +246,5 @@ The next UI iteration should simplify the dashboard before adding more features:
 The goal is not to remove NoteBeat's depth. The goal is to reveal it in layers.
 
 Author: Victor Ruiz
+
+Last update: 14/06/26
