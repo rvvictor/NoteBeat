@@ -1,0 +1,6 @@
+# recording artifacts and the signed-in browser state
+state.json
+clips/
+mp4/
+cut/
+still-*.png

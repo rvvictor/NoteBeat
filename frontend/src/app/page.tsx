@@ -7,21 +7,24 @@ const featureRows = [
     title: "Create notes with music and context",
     description:
       "Write freely, attach a song, and save the moment in seconds. Everything is ready to revisit later.",
-    media: "Creation view",
+    media: "Writing a note and attaching a song in NoteBeat",
+    image: "/media/feature-create-note.png",
   },
   {
     tag: "Share Note",
     title: "Share notes that feel real",
     description:
       "Share notes with friends and receive replies with emotions, reactions, and recommended music.",
-    media: "Interactions and reactions",
+    media: "Publishing a public thread from a private note",
+    image: "/media/feature-share-note.png",
   },
   {
     tag: "Feed",
     title: "A feed that inspires you",
     description:
       "Explore recent notes, discover moods, and save new songs for your own creative flow.",
-    media: "Notes feed",
+    media: "The NoteBeat feed with threads and soundtracks",
+    image: "/media/feature-feed.png",
   },
 ];
 
@@ -113,8 +116,18 @@ export default function Home() {
 
         <section id="flow" className="nb-container -mt-4 pt-0 pb-16 lg:-mt-6 lg:pt-2">
           <div className="text-center space-y-6">
-            <div className="media-placeholder aspect-video mx-auto max-w-4xl flex items-center justify-center text-sm uppercase tracking-[0.2em] text-(--nb-ink-muted)">
-              Video coming soon
+            <div className="media-frame aspect-video mx-auto max-w-4xl">
+              <video
+                className="h-full w-full object-cover"
+                src="/media/hero.mp4"
+                poster="/media/hero-poster.jpg"
+                preload="metadata"
+                autoPlay
+                loop
+                muted
+                playsInline
+                controls
+              />
             </div>
           </div>
         </section>
@@ -143,8 +156,14 @@ export default function Home() {
                     </p>
                   </div>
                   <div className="flex-1">
-                    <div className="media-placeholder aspect-4/3 flex items-center justify-center text-sm uppercase tracking-[0.2em] text-(--nb-ink-muted)">
-                      {feature.media}
+                    <div className="media-frame aspect-4/3">
+                      <Image
+                        src={feature.image}
+                        alt={feature.media}
+                        width={1200}
+                        height={900}
+                        className="h-full w-full object-cover"
+                      />
                     </div>
                   </div>
                 </div>
@@ -187,8 +206,14 @@ export default function Home() {
                   </p>
                 </div>
               </div>
-              <div className="media-placeholder ai-glow aspect-square flex items-center justify-center text-sm uppercase tracking-[0.2em] text-(--nb-ink-muted)">
-                AI panel
+              <div className="media-frame ai-glow aspect-square">
+                <Image
+                  src="/media/ai-panel.png"
+                  alt="NoteBeat recap panel with music mood, top songs and emotion shifts"
+                  width={1080}
+                  height={1080}
+                  className="h-full w-full object-cover"
+                />
               </div>
             </div>
           </div>

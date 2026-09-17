@@ -62,3 +62,4 @@ ngrok.yml.bak
 # Local Codex skills/agents
 .agents/
 skills-lock.json
+**/.claude/skills/

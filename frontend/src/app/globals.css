@@ -4159,6 +4159,15 @@ a {
   border-radius: 18px;
 }
 
+.media-frame {
+  background: var(--nb-card-strong);
+  border: 1px solid var(--nb-stroke);
+  border-radius: 26px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--nb-shadow);
+}
+
 .note-card {
   background: var(--nb-card-strong);
   border-radius: 18px;

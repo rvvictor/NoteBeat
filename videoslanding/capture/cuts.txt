@@ -1,0 +1,15 @@
+# <clip-name> <scene> <start-seconds> <duration-seconds>
+# Start times come from the marks that scenes.mjs prints while recording.
+login signin 11.4 4.9
+overview feed 2.8 3.2
+write quicknote 5.6 6.4
+song quicknote 13.0 8.0
+post quicknote 22.6 4.6
+profile quicknote 29.6 3.4
+threadopen thread 6.2 5.8
+threadpub thread 24.6 5.8
+feedlike feed 5.0 6.0
+feedsave feed 11.0 4.6
+feedtabs feed 19.6 5.0
+emotions emotions 5.2 8.2
+recap recap 16.6 9.2
