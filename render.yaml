@@ -1,0 +1,51 @@
+# Render Blueprint for the NoteBeat API (free plan).
+#
+#   Dashboard -> New -> Blueprint -> pick this repo.
+#
+# Render builds backend/Dockerfile and runs one free web service. The database
+# is NOT declared here on purpose: NoteBeat uses the existing Supabase Postgres,
+# and Render's free Postgres expires after 30 days.
+#
+# Every `sync: false` variable is asked for once in the dashboard (or set later
+# under Environment) so no secret ever lives in the repo.
+services:
+  - type: web
+    name: notebeat-api
+    runtime: docker
+    plan: free
+    region: frankfurt   # pick whichever is closest to the Supabase project
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /
+    autoDeploy: true
+    envVars:
+      # --- secrets / per-environment, set in the dashboard ---
+      - key: DATABASE_URL          # Supabase "Session pooler" URI (IPv4)
+        sync: false
+      - key: SECRET_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: SPOTIFY_CLIENT_ID
+        sync: false
+      - key: SPOTIFY_CLIENT_SECRET
+        sync: false
+      - key: SPOTIFY_REDIRECT_URI  # https://<this-service>.onrender.com/callback
+        sync: false
+      - key: SPOTIFY_POST_AUTH_REDIRECT  # https://<vercel-app>/dashboard/notes
+        sync: false
+      - key: CORS_ORIGINS          # https://<vercel-app>  (comma separated)
+        sync: false
+      # --- fixed values ---
+      - key: ALGORITHM
+        value: HS256
+      - key: SPOTIFY_SCOPES
+        value: user-follow-read user-read-recently-played user-top-read
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: COOKIE_SAMESITE
+        value: lax
+      # Startup must be fast on the free plan: the cover backfill talks to
+      # Spotify before uvicorn binds the port, which can stall a cold boot.
+      - key: BACKFILL_SONG_COVERS_ON_STARTUP
+        value: "false"
